@@ -164,7 +164,9 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .expander{display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(255,176,32,.07);border:1px solid #6b4a0d;border-radius:3px;
   padding:10px 12px;font:700 11px var(--mono);letter-spacing:.12em;color:var(--amber);min-height:40px}
 .expander:hover{background:rgba(255,176,32,.12)}
-.expander .sub{color:var(--amber);font-weight:500;letter-spacing:.04em}
+.expander>span:first-child{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.expander .sub{color:var(--amber);font-weight:500;letter-spacing:.02em;text-transform:none}
+.expander .sub .tag{font:600 8px var(--mono);font-style:normal;letter-spacing:.12em;border-radius:2px;padding:1px 5px;vertical-align:1px}
 /* date line under a chart without a dropdown, e.g. "AS OF Oct 7, 12:42 AM", in the same amber as the dropdown labels */
 .asof{font:500 11px var(--mono);letter-spacing:.02em;color:var(--amber);padding:2px 2px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .asof .tag,.status-chip .tag{font:600 8px var(--mono);font-style:normal;letter-spacing:.12em;border-radius:2px;padding:1px 5px}
@@ -236,6 +238,8 @@ td.usd{color:var(--ink);font-weight:500}
   .range-btn{padding:7px 9px;gap:6px;white-space:nowrap}
   .range-btn .lab{display:none}
   .range-btn .rr{display:none}
+  .expander{padding:10px 9px;letter-spacing:.06em;font-size:10.5px}
+  .expander .sub{font-size:10.5px;letter-spacing:0}
   .jobs{flex:none}
   .chip{display:inline-flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:6px 7px}
   .chip .long{display:none}

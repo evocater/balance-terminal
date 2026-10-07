@@ -156,7 +156,7 @@ function setAsof(id, a) {
   const el = $(id); if (!el) return;
   if (!a) { el.textContent = ''; return; }
   if (typeof a === 'string') { el.textContent = '· ' + a; return; }
-  el.innerHTML = id.startsWith('asof-') ? `As of ${KTAG[a.kind]} @ ${dtime(a.t)}` : '· ' + tstr(a.t);
+  el.innerHTML = `${id.startsWith('asof-') ? '' : '· '}As of ${KTAG[a.kind]} @ ${dtime(a.t)}`;
 }
 const labelsFor = (cols, kind) => { const lt = X.hasNow ? latestFor(kind) : null; return cols.map(i => M[i] === LATEST ? lt.label : lab(M[i])); };
 const fillFor = (color, cols) => ctx => M[cols[ctx.dataIndex]] === LATEST ? hatch(color) : color;
@@ -359,12 +359,12 @@ function renderLive() {
     const pct = p.price / ref * 100 - 100;
     return `<tr><td><span class="sw" style="background:${color[p.ticker] || '#8a95a6'};margin-right:8px"></span>${p.ticker}${p.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="usd">${fmt(p.value)}</td><td class="${cls(dv)}">${(pct >= 0 ? '+' : '') + pct.toFixed(2)}%</td><td>${chg(dv)}</td><td class="hide-sm">${p.account}</td><td class="hide-sm">${Number(p.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td><td class="hide-sm">${fmt2(p.price)}</td></tr>`;
   }).join('');
-  setAsof('pos-asof', L ? tstr(L.asof) : 'month-end values');
+  setAsof('pos-asof', L ? { kind: liveKind(), t: L.asof } : 'month-end values');
   $('pos').innerHTML = `<thead><tr><th>TICKER</th><th>VALUE</th><th>% VS ${refDate}</th><th>P/L</th><th class="hide-sm">ACCOUNT</th><th class="hide-sm">SHARES</th><th class="hide-sm">LAST</th></tr></thead><tbody>${pr}<tr class="tot"><td>TOTAL</td><td>${fmt(tot)}</td><td></td><td>${chg(tot - totRef)}</td><td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td></tr></tbody>`;
 
   // Wallets: highest USD first
   const W = ((L && L.crypto) || []).filter(Boolean);
-  setAsof('wal-asof', L ? tstr(L.asof) : 'refresh to read wallets');
+  setAsof('wal-asof', L ? { kind: liveKind(), t: L.asof } : 'refresh to read wallets');
   const ws = W.slice().sort((x, y) => (y.usd || 0) - (x.usd || 0));
   const wt = ws.reduce((s, r) => s + (r.usd || 0), 0);
   const short = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : n >= 1 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : n.toFixed(4);
@@ -689,7 +689,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791349662';
+const BUILD = '1791349754';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
