@@ -95,7 +95,7 @@ function applyPreset() {
   const p = S.preset;
   if (p === 'all') S.from = 0;
   else if (p === 'ytd') { const y = D.months[NM - 1].split('-')[1]; S.from = Math.max(0, M.indexOf('Jan-' + y)); }
-  else S.from = Math.max(0, N - (+p));
+  else S.from = Math.max(0, N - (+p) - (X.hasNow ? 1 : 0)); // e.g. 3M = the last 3 month-ends, plus NOW when it exists
 }
 const saveView = () => LS.set('bt-view', { preset: S.preset, from: S.from, to: S.to, inv: S.inv, liab: S.liab, hidden: S.hidden, x: S.x });
 const PRESET_NAME = { '3': '3M', '6': '6M', '12': '1Y', ytd: 'YTD', '36': '3Y', all: 'ALL' };
@@ -225,7 +225,8 @@ function render() {
   $('tbl').innerHTML = `<thead><tr><th>HOLDING</th><th>VALUE</th><th>SHARE</th><th>CHG SINCE ${lab(M[a]).toUpperCase()}</th></tr></thead><tbody>${rows}</tbody>`;
 
   // Liabilities (monthly only; no NOW column)
-  const lb = Math.min(b, NM - 1), la = Math.min(a, lb), lidx = [...Array(lb - la + 1)].map((_, i) => la + i);
+  const nMonths = idx.filter(i => M[i] !== 'NOW').length;
+  const lb = Math.min(b, NM - 1), la = Math.max(0, lb - Math.max(1, nMonths) + 1), lidx = [...Array(lb - la + 1)].map((_, i) => la + i);
   const byCat = X.cats && S.liab === 'cat';
   $('liab-mode').innerHTML = X.cats ? `<button data-m="cat" aria-pressed="${S.liab === 'cat'}">BY CATEGORY</button><button data-m="card" aria-pressed="${S.liab === 'card'}">BY CARD</button>` : '';
   $('liab-mode').querySelectorAll('button').forEach(x => x.onclick = () => { S.liab = x.dataset.m; saveView(); render(); });
@@ -335,7 +336,30 @@ function renderStatus() {
 
 // ---------------------------------------------------------------- actions
 let toastT = null;
-function toast(html, ms) { const t = $('toast'); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); if (ms !== 0) toastT = setTimeout(() => { t.hidden = true; }, ms || 4000); }
+function toast(html, ms) {
+  const t = $('toast'); t.innerHTML = html; t.hidden = false; t.style.transform = ''; t.style.opacity = '';
+  clearTimeout(toastT); if (ms !== 0) toastT = setTimeout(() => { t.hidden = true; }, ms || 4000);
+}
+// Swipe a toast down to dismiss it. Pulling it up only moves it a little, then it springs back.
+(function () {
+  const t = $('toast'); let y0 = null, dy = 0;
+  const base = 'translateX(-50%)';
+  t.addEventListener('pointerdown', e => { if (e.target.closest('a')) return; y0 = e.clientY; dy = 0; t.classList.add('dragging'); t.setPointerCapture(e.pointerId); clearTimeout(toastT); });
+  t.addEventListener('pointermove', e => {
+    if (y0 === null) return;
+    dy = e.clientY - y0;
+    const shown = dy > 0 ? dy : -Math.min(24, Math.sqrt(-dy) * 3);
+    t.style.transform = `${base} translateY(${shown}px)`;
+    t.style.opacity = dy > 0 ? String(Math.max(.2, 1 - dy / 160)) : '';
+  });
+  const end = () => {
+    if (y0 === null) return;
+    t.classList.remove('dragging'); y0 = null;
+    if (dy > 50) { t.style.transform = `${base} translateY(140px)`; t.style.opacity = '0'; setTimeout(() => { t.hidden = true; t.style.transform = ''; t.style.opacity = ''; }, 200); }
+    else { t.style.transform = ''; t.style.opacity = ''; toastT = setTimeout(() => { t.hidden = true; }, 3000); }
+  };
+  t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+})();
 function busy(on, text) { $('btn-menu').disabled = on; busyText = on ? text : null; if (D) renderStatus(); }
 
 // ---------------------------------------------------------------- expanders (tap a chart to see its table)
