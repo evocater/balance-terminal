@@ -109,7 +109,9 @@ select{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;
 .donut-mid .num{font-size:20px;color:var(--amber)}
 
 /* tables */
-.tbl-wrap{overflow-x:auto}
+.tbl-wrap{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tbl-wrap::-webkit-scrollbar{display:none}
+.tape{scrollbar-width:none}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{font:600 10px var(--mono);letter-spacing:.12em;color:var(--ink-3);text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:5px 8px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
@@ -201,7 +203,9 @@ td.usd{color:var(--ink);font-weight:500}
   /* phone order: assets, liabilities, working capital, then the rest */
   #p-assets{order:1} #p-liab{order:2} #p-wc{order:3} #p-inv{order:4} #p-expo{order:5} #p-wal{order:6}
   .tree{height:260px}
-  th,td{padding:5px 4px}
+  th,td{padding:5px 3px}
+  table{font-size:11px}
+  #tbl th:last-child{white-space:normal}
   .wl{gap:6px}
   .wl svg{width:16px;height:16px}
   .badge{font-size:8px;padding:0 3px}

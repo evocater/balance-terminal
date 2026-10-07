@@ -104,7 +104,26 @@ const PRESET_NAME = { '3': '3M', '6': '6M', '12': '1Y', ytd: 'YTD', '36': '3Y', 
 Chart.defaults.font.family = '"IBM Plex Mono", ui-monospace, monospace';
 Chart.defaults.color = C.ink3;
 const charts = {};
-function upsert(id, cfgc) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart($(id), cfgc); }
+function upsert(id, cfgc) {
+  if (charts[id]) charts[id].destroy();
+  // Tap the same bar or point again to close its callout; tap anywhere else on the page to close all.
+  cfgc.options = cfgc.options || {};
+  cfgc.options.onClick = (evt, els, chart) => {
+    const i = els.length ? els[0].index + ':' + els[0].datasetIndex : null;
+    if (chart.$pinned && (i === null || chart.$pinned.split(':')[0] === i.split(':')[0])) { hideTip(chart); return; }
+    chart.$pinned = i;
+  };
+  charts[id] = new Chart($(id), cfgc);
+}
+function hideTip(chart) {
+  chart.$pinned = null;
+  chart.setActiveElements([]);
+  chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+  chart.update('none');
+}
+document.addEventListener('touchstart', e => {
+  Object.values(charts).forEach(c => { if (c && c.canvas !== e.target && (c.tooltip.getActiveElements() || []).length) hideTip(c); });
+}, { passive: true });
 function baseOpts(stacked) {
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 200 }, layout: { padding: { right: 8 } },
