@@ -73,7 +73,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 
 /* range + jobs */
 .bar-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
-.range-wrap{position:relative}
+.range-wrap{position:relative;flex:1 1 auto;min-width:0}
+/* the range button fills the space up to the status chip, so its width never changes with the selection */
+.range-btn{width:100%;justify-content:space-between}
+#range-label{flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jobs{flex:none}
 .range-btn{gap:8px}
 .range-btn .lab{font-size:9px;letter-spacing:.14em;color:var(--ink-3)}
 .range-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:25;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 32px rgba(0,0,0,.6);width:max-content;max-width:calc(100vw - 32px)}
@@ -228,7 +232,7 @@ td.usd{color:var(--ink);font-weight:500}
   .range-btn{padding:7px 9px;gap:6px;white-space:nowrap}
   .range-btn .lab{display:none}
   .range-btn .rr{display:none}
-  .jobs{min-width:0;flex:0 1 auto}
+  .jobs{flex:none}
   .chip{display:inline-flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:6px 7px}
   .chip .long{display:none}
   .chip .short{display:inline}

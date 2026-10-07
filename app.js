@@ -661,7 +661,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791348798';
+const BUILD = '1791348907';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
