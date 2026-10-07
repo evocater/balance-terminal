@@ -220,7 +220,8 @@ function render() {
   if (fs.options.length !== N) { fs.innerHTML = ''; ts.innerHTML = ''; M.forEach((m, i) => { fs.add(new Option(lab(m), i)); ts.add(new Option(lab(m), i)); }); }
   fs.value = a; ts.value = b;
   document.querySelectorAll('#presets button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === S.preset));
-  $('range-label').textContent = `${S.preset ? PRESET_NAME[S.preset] + ' · ' : ''}${lab(M[a])} → ${lab(M[b])}`;
+  // Phones show only the preset (e.g. "3M") so the refresh status fits beside it; the dates show in the dropdown.
+  $('range-label').innerHTML = S.preset ? `${PRESET_NAME[S.preset]}<span class="rr"> · ${lab(M[a])} → ${lab(M[b])}</span>` : `${lab(M[a])} → ${lab(M[b])}`;
   applyX();
 
   // KPIs
@@ -369,19 +370,25 @@ function renderStatus() {
     if (when) { st.classList.add((Date.now() - new Date(when)) < 60 * 60 * 1000 ? 'fresh' : 'old'); $('status-text').textContent = tstr(when).toUpperCase(); }
     else $('status-text').textContent = D ? 'MONTH-END ' + longLab(D.months[NM - 1]).toUpperCase() : '—';
   }
+  // Status chip: the kind of the most recent refresh (same colored tags as the Refresh menu) and how long ago.
   const j = D && D.jobs && D.jobs.full;
   const jc = $('jobs');
-  if (j && j.status) {
-    const a = ago(j.finished_at || j.requested_at).toUpperCase();
-    const m = {
-      queued: ['q', 'MAC UPDATE QUEUED ' + ago(j.requested_at).toUpperCase(), 'MAC QUEUED', true],
-      running: ['run', 'MAC UPDATING · ' + (j.message || '').toUpperCase(), 'MAC UPDATING…', true],
-      cancel_requested: ['q', 'STOPPING ON THE MAC…', 'STOPPING…', false],
-      cancelled: ['err', 'MAC UPDATE CANCELLED · NOTHING CHANGED', 'MAC CANCELLED', false],
-      done: ['ok', 'MAC UPDATE DONE ' + a, 'MAC DONE ' + a, false],
-      error: ['err', 'MAC UPDATE FAILED · ' + (j.message || '').toUpperCase(), 'MAC FAILED', false],
-    }[j.status] || ['q', String(j.status).toUpperCase(), String(j.status).toUpperCase(), false];
-    jc.innerHTML = `<span class="chip ${m[0]}" title="${(j.message || '').replace(/"/g, '&quot;')}"><span class="long">${m[1]}</span><span class="short">${m[2]}</span>${m[3] ? '<button class="x" id="job-cancel" type="button">CANCEL</button>' : ''}</span>`;
+  const TAG = { quick: '<i class="tag t-quick">QUICK</i>', more: '<i class="tag t-more">MORE</i>', heavy: '<i class="tag t-heavy">HEAVY</i>' };
+  let chip = null;
+  if (busyText) chip = { kind: /SAV/.test(busyText) ? 'more' : 'quick', text: /SAV/.test(busyText) ? 'SAVING…' : 'REFRESHING…' };
+  else if (j && ['queued', 'running', 'cancel_requested'].includes(j.status)) chip = { kind: 'heavy', text: { queued: 'QUEUED ON MAC', running: 'UPDATING ON MAC…', cancel_requested: 'STOPPING…' }[j.status], cancel: j.status !== 'cancel_requested' };
+  else {
+    const ev = [];
+    const L = D && D.live;
+    const sheet = D && (D.sheets || [])[0];
+    if (L && L.asof) ev.push({ kind: sheet && Math.abs(new Date(sheet.created) - new Date(L.asof)) < 3 * 60000 ? 'more' : 'quick', t: L.asof });
+    if (j && j.status === 'done' && j.finished_at) ev.push({ kind: 'heavy', t: j.finished_at });
+    if (j && ['error', 'cancelled'].includes(j.status) && j.finished_at) ev.push({ kind: 'heavy', t: j.finished_at, bad: j.status });
+    const last = ev.sort((x, y) => new Date(y.t) - new Date(x.t))[0];
+    if (last) chip = last.bad ? { kind: 'heavy', text: (last.bad === 'error' ? 'FAILED ' : 'CANCELLED ') + ago(last.t).toUpperCase(), bad: true } : { kind: last.kind, text: 'REFRESHED ' + ago(last.t).toUpperCase() };
+  }
+  if (chip) {
+    jc.innerHTML = `<span class="chip status-chip${chip.bad ? ' err' : ''}" title="${j && j.message ? j.message.replace(/"/g, '&quot;') : ''}">${TAG[chip.kind]}<span>${chip.text}</span>${chip.cancel ? '<button class="x" id="job-cancel" type="button">CANCEL</button>' : ''}</span>`;
     const x = $('job-cancel'); if (x) x.onclick = cancelFull;
   } else jc.innerHTML = '';
 }
@@ -654,7 +661,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791348739';
+const BUILD = '1791348798';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
@@ -666,6 +673,7 @@ document.addEventListener('visibilitychange', wake);
 window.addEventListener('focus', wake);
 window.addEventListener('pageshow', wake);
 setInterval(() => { if (!document.hidden) loadQuotes(); }, 5 * 60 * 1000);
+setInterval(() => { if (!document.hidden && D) renderStatus(); }, 30 * 1000); // keep "x min ago" current
 
 if (D) render();
 if (!cfg().key) openSettings(); else { load(); loadQuotes(); }

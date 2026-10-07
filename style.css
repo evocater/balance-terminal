@@ -196,6 +196,8 @@ button.donut{background:none;border:0;padding:0;cursor:pointer;display:block;mar
 
 /* jobs chip with cancel */
 .chip .short{display:none}
+.status-chip{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2)}
+.status-chip .tag{font:600 8px var(--mono);font-style:normal;letter-spacing:.12em;border-radius:2px;padding:1px 5px;margin:0}
 .chip .x{margin-left:8px;background:none;border:0;color:var(--red);font:600 10px var(--mono);letter-spacing:.08em;padding:0;cursor:pointer}
 
 /* wallet labels */
@@ -225,6 +227,7 @@ td.usd{color:var(--ink);font-weight:500}
   .bar-row{flex-wrap:nowrap;gap:6px}
   .range-btn{padding:7px 9px;gap:6px;white-space:nowrap}
   .range-btn .lab{display:none}
+  .range-btn .rr{display:none}
   .jobs{min-width:0;flex:0 1 auto}
   .chip{display:inline-flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:6px 7px}
   .chip .long{display:none}
