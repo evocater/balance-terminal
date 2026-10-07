@@ -109,13 +109,12 @@ const TOUCH = matchMedia('(hover: none)').matches;
 // and tapping anywhere outside the chart closes it. Runs after Chart.js's own tooltip handling.
 const tapToggle = {
   id: 'tapToggle',
+  // If a callout was already open on this chart, any tap on the chart (including on the callout) closes it.
+  beforeEvent(chart, args) { if (TOUCH && args.event.type === 'click') chart.$wasOpen = (chart.tooltip.getActiveElements() || []).length > 0; },
   afterEvent(chart, args) {
-    const e = args.event;
-    if (!TOUCH || e.type !== 'click') return;
-    const act = chart.tooltip.getActiveElements();
-    const key = act.length ? String(act[0].index) : null;
-    if (chart.$pinned != null && chart.$pinned === key) { clearTip(chart); args.changed = true; }
-    else chart.$pinned = key;
+    if (!TOUCH || args.event.type !== 'click') return;
+    if (chart.$wasOpen) { clearTip(chart); args.changed = true; }
+    chart.$wasOpen = false;
   },
 };
 function clearTip(chart) {
