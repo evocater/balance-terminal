@@ -148,7 +148,7 @@ function render() {
   $('kpis').innerHTML = K.map(k => {
     const d = k.v[b] - k.v[a], p = pctS(k.v[b], k.v[a]);
     const good = k.inv ? d <= 0 : d >= 0;
-    const c = a === b ? '&nbsp;' : `<span class="${d === 0 ? 'flat' : good ? 'up' : 'down'}">${d >= 0 ? '+' : '-'}${fmtK(Math.abs(d)).replace('-', '')}${p === null || !isFinite(p) ? '' : ` (${p >= 0 ? '+' : ''}${p.toFixed(1)}%)`}</span> vs ${lab(M[a])}`;
+    const c = a === b ? '&nbsp;' : `<span class="${d === 0 ? 'flat' : good ? 'up' : 'down'}">${d >= 0 ? '+' : '-'}${fmtK(Math.abs(d)).replace('-', '')}${p === null || !isFinite(p) ? '' : ` (${p >= 0 ? '+' : ''}${p.toFixed(1)}%)`}</span><span class="vs"> vs ${lab(M[a])}</span>`;
     return `<div class="kpi${k.hero ? ' hero' : ''}"><span class="lab">${k.l}</span><span class="val">${fmt(k.v[b])}</span><span class="chg">${c}</span></div>`;
   }).join('');
 
@@ -207,11 +207,33 @@ function render() {
   saveView();
 }
 
+// Small inline marks for wallet providers (own drawings, not official artwork).
+const ICON = {
+  phantom: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="5" fill="#ab9ff2"/><path d="M4.5 13.2c0-4.3 2.6-7.4 5.8-7.4 3.1 0 5.2 2.6 5.2 5.6 0 3-1.6 4.8-2.7 4.8-.6 0-.8-.5-.8-.9-.4.6-1 .9-1.6.9-.6 0-1-.4-1.1-.8-.4.5-1 .8-1.6.8-.9 0-1.4-.6-1.4-1.3 0-.7.4-1.2.4-1.7z" fill="#fff"/><circle cx="10.6" cy="10.2" r=".9" fill="#ab9ff2"/><circle cx="13.2" cy="10.2" r=".9" fill="#ab9ff2"/></svg>',
+  backpack: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="5" fill="#e33e3f"/><path d="M7.6 6.2V5.4a2.4 2.4 0 0 1 4.8 0v.8" stroke="#fff" stroke-width="1.4" fill="none"/><rect x="5.2" y="6.2" width="9.6" height="9.4" rx="2.4" fill="#fff"/><rect x="7.4" y="10.4" width="5.2" height="2.6" rx=".8" fill="#e33e3f"/></svg>',
+  coinbase: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="5" fill="#1652f0"/><circle cx="10" cy="10" r="5.2" fill="#fff"/><rect x="8.2" y="8.2" width="3.6" height="3.6" rx=".6" fill="#1652f0"/></svg>',
+  nft: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="5" fill="#3a1820"/><path d="M10 4.2l5 2.9v5.8l-5 2.9-5-2.9V7.1z" fill="none" stroke="#ff4d5e" stroke-width="1.4"/></svg>',
+  bot: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="5" fill="#1d2a3a"/><rect x="5" y="7" width="10" height="7.5" rx="2" fill="#3ab7ff"/><circle cx="8.2" cy="10.6" r="1" fill="#1d2a3a"/><circle cx="11.8" cy="10.6" r="1" fill="#1d2a3a"/><rect x="9.4" y="4.4" width="1.2" height="2.6" fill="#3ab7ff"/></svg>',
+};
+function walletLabel(r) {
+  const L = r.label;
+  let m = L.match(/^(Phantom|Backpack)\s*(\d+)\s*\(([^)]+)\)(.*)$/i);
+  if (m) {
+    const stake = /stake/i.test(m[4]);
+    const n2 = (m[4].match(/stake\s*(\d+)/i) || [])[1];
+    return `<span class="wl">${ICON[m[1].toLowerCase()]}<span>${m[2]} <span class="tail">· ${m[3]}</span></span>${stake ? `<span class="badge stake" title="Staked">STAKE${n2 ? ' ' + n2 : ''}</span>` : ''}</span>`;
+  }
+  if (/^NFT\s+/i.test(L)) return `<span class="wl">${ICON.nft}<span>NFT · ${L.replace(/^NFT\s+/i, '')}</span></span>`;
+  if (/^Coinbase/i.test(L)) return `<span class="wl">${ICON.coinbase}<span>Coinbase <span class="tail">· ${L.replace(/^Coinbase\s*/i, '')}</span></span></span>`;
+  if (/TG Bots/i.test(L)) return `<span class="wl">${ICON.bot}<span>Telegram bots</span><span class="badge manual">MANUAL</span></span>`;
+  return `<span class="wl"><span>${L}</span></span>`;
+}
+
 function renderLive() {
   const L = D.live;
   const hold = (D.holdings || []);
   const refDate = hold[0] && hold[0].ref_date ? new Date(hold[0].ref_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase() : 'MONTH END';
-  // Positions
+  // Positions (value first so it shows on a phone)
   const P = (L && L.holdings) || hold.map(h => ({ account: h.account, ticker: h.ticker, shares: h.shares, price: h.ref_price, value: h.ref_value }));
   const refP = Object.fromEntries(hold.map(h => [h.ticker, h.ref_price]));
   const color = Object.fromEntries(HOLD.map(h => [h.k, h.c])); color.IBIT = '#f7931a';
@@ -219,19 +241,21 @@ function renderLive() {
   let tot = 0, totRef = 0;
   const pr = ps.map(p => {
     const ref = refP[p.ticker] || p.price; const dv = (p.price - ref) * p.shares; tot += p.value; totRef += ref * p.shares;
-    return `<tr><td><span class="sw" style="background:${color[p.ticker] || '#8a95a6'};margin-right:8px"></span>${p.ticker}${p.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td>${p.account}</td><td>${Number(p.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td><td>${fmt2(p.price)}</td><td>${fmt(p.value)}</td><td class="${cls(dv)}">${(p.price / ref * 100 - 100 >= 0 ? '+' : '') + (p.price / ref * 100 - 100).toFixed(2)}%</td><td>${chg(dv)}</td></tr>`;
+    const pct = p.price / ref * 100 - 100;
+    return `<tr><td><span class="sw" style="background:${color[p.ticker] || '#8a95a6'};margin-right:8px"></span>${p.ticker}${p.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="usd">${fmt(p.value)}</td><td class="${cls(dv)}">${(pct >= 0 ? '+' : '') + pct.toFixed(2)}%</td><td>${chg(dv)}</td><td class="hide-sm">${p.account}</td><td class="hide-sm">${Number(p.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td><td class="hide-sm">${fmt2(p.price)}</td></tr>`;
   }).join('');
   $('pos-asof').textContent = L ? '· ' + tstr(L.asof) : '· month-end values';
-  $('pos').innerHTML = `<thead><tr><th>TICKER</th><th>ACCOUNT</th><th>SHARES</th><th>LAST</th><th>VALUE</th><th>% VS ${refDate}</th><th>P/L VS ${refDate}</th></tr></thead><tbody>${pr}<tr class="tot"><td>TOTAL</td><td></td><td></td><td></td><td>${fmt(tot)}</td><td></td><td>${chg(tot - totRef)}</td></tr></tbody>`;
+  $('pos').innerHTML = `<thead><tr><th>TICKER</th><th>VALUE</th><th>% VS ${refDate}</th><th>P/L</th><th class="hide-sm">ACCOUNT</th><th class="hide-sm">SHARES</th><th class="hide-sm">LAST</th></tr></thead><tbody>${pr}<tr class="tot"><td>TOTAL</td><td>${fmt(tot)}</td><td></td><td>${chg(tot - totRef)}</td><td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td></tr></tbody>`;
 
-  // Wallets
-  const W = (L && L.crypto) || [];
-  $('wal-asof').textContent = L ? '· ' + tstr(L.asof) : '· run a refresh to read wallets';
-  const secColor = { Solana: '#9b4dff', Monad: '#e04fb3', Bitcoin: '#f7931a', NFTs: '#ff4d5e' };
+  // Wallets: highest USD first
+  const W = ((L && L.crypto) || []).filter(Boolean);
+  $('wal-asof').textContent = L ? '· ' + tstr(L.asof) : '· refresh to read wallets';
   const ws = W.slice().sort((x, y) => (y.usd || 0) - (x.usd || 0));
   const wt = ws.reduce((s, r) => s + (r.usd || 0), 0);
-  $('wal').innerHTML = W.length ? `<thead><tr><th>WALLET / LINE</th><th>ASSET</th><th>AMOUNT</th><th>PRICE</th><th>USD</th><th>KIND</th></tr></thead><tbody>${ws.map(r =>
-    `<tr><td><span class="sw" style="background:${secColor[r.sector] || '#8a95a6'};margin-right:8px"></span>${r.label}${r.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td>${r.asset}</td><td>${Number(r.amount).toLocaleString('en-US', { maximumFractionDigits: r.asset === 'USD' ? 2 : 4 })}</td><td>${r.asset === 'USD' ? '–' : fmt2(r.price)}</td><td>${fmt(r.usd)}</td><td>${r.kind.toUpperCase()}</td></tr>`).join('')}<tr class="tot"><td>TOTAL</td><td></td><td></td><td></td><td>${fmt(wt)}</td><td></td></tr></tbody>` : '<tbody><tr><td>No live wallet read yet. Press REFRESH.</td></tr></tbody>';
+  const short = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : n >= 1 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : n.toFixed(4);
+  const amt = r => r.asset === 'USD' ? '–' : `${short(Number(r.amount))}<small>${r.asset}</small>`;
+  $('wal').innerHTML = ws.length ? `<thead><tr><th>WALLET</th><th>AMOUNT</th><th class="hide-sm">PRICE</th><th>USD</th></tr></thead><tbody>${ws.map(r =>
+    `<tr><td>${walletLabel(r)}${r.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="amt">${amt(r)}</td><td class="hide-sm">${r.asset === 'USD' ? '–' : fmt2(r.price)}</td><td class="usd">${fmt(r.usd)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL</td><td></td><td class="hide-sm"></td><td>${fmt(wt)}</td></tr></tbody>` : '<tbody><tr><td>No wallet read yet. Use Refresh.</td></tr></tbody>';
 
   // Tape
   const cRef = (D.crypto && D.crypto.ref_prices) || {};
@@ -243,62 +267,178 @@ function renderLive() {
   const html = items.map(([s, p, r]) => { const d = r ? (p / r - 1) * 100 : 0; return `<span><b>${s}</b>${p < 1 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 })} <span class="${cls(d)}">${d >= 0 ? '▲' : '▼'}${Math.abs(d).toFixed(2)}%</span></span>`; }).join('');
   $('tape').innerHTML = html + html;
 
-  // Status + jobs + footer
+  renderStatus();
+  const sheet = (D.sheets || [])[0];
+  $('foot').innerHTML = `History through ${longLab(D.months[NM - 1])}${D.updated_at ? ' · full update ' + tstr(D.updated_at) : ''}${D.restored_from ? ' · restored from ' + D.restored_from : ''}${sheet ? ` · last sheet: <a href="${sheet.url}" target="_blank" rel="noopener">${sheet.name}</a>` : ''}`;
+}
+
+let busyText = null;
+function renderStatus() {
   const st = $('status');
-  st.className = 'status';
-  if (L) { const fresh = (Date.now() - new Date(L.asof)) < 15 * 60 * 1000; st.classList.add(fresh ? 'live' : 'stale'); $('status-text').textContent = (fresh ? 'LIVE · ' : 'AS OF ') + tstr(L.asof).toUpperCase(); }
-  else { $('status-text').textContent = 'MONTH-END · ' + longLab(D.months[NM - 1]).toUpperCase(); }
-  const j = D.jobs && D.jobs.full;
+  st.className = 'updated';
+  if (busyText) { st.classList.add('busy'); $('status-text').textContent = busyText; }
+  else {
+    const L = D && D.live;
+    const when = [L && L.asof, D && D.updated_at].filter(Boolean).sort().pop();
+    if (when) { st.classList.add((Date.now() - new Date(when)) < 60 * 60 * 1000 ? 'fresh' : 'old'); $('status-text').textContent = tstr(when).toUpperCase(); }
+    else $('status-text').textContent = D ? 'MONTH-END ' + longLab(D.months[NM - 1]).toUpperCase() : '—';
+  }
+  const j = D && D.jobs && D.jobs.full;
   const jc = $('jobs');
   if (j && j.status) {
-    const m = { queued: ['q', 'MAC JOB QUEUED ' + ago(j.requested_at).toUpperCase()], running: ['run', 'MAC UPDATING · ' + (j.message || '').toUpperCase()], done: ['ok', 'MAC UPDATE DONE ' + ago(j.finished_at || j.requested_at).toUpperCase()], error: ['err', 'MAC UPDATE FAILED · ' + (j.message || '').toUpperCase()] }[j.status] || ['q', j.status];
-    jc.innerHTML = `<span class="chip ${m[0]}">${m[1]}</span>`;
+    const m = {
+      queued: ['q', 'MAC UPDATE QUEUED ' + ago(j.requested_at).toUpperCase(), true],
+      running: ['run', 'MAC UPDATING · ' + (j.message || '').toUpperCase(), true],
+      cancel_requested: ['q', 'STOPPING ON THE MAC…', false],
+      cancelled: ['err', 'MAC UPDATE CANCELLED · NOTHING CHANGED', false],
+      done: ['ok', 'MAC UPDATE DONE ' + ago(j.finished_at || j.requested_at).toUpperCase(), false],
+      error: ['err', 'MAC UPDATE FAILED · ' + (j.message || '').toUpperCase(), false],
+    }[j.status] || ['q', String(j.status).toUpperCase(), false];
+    jc.innerHTML = `<span class="chip ${m[0]}" title="${(j.message || '').replace(/"/g, '&quot;')}">${m[1]}${m[2] ? '<button class="x" id="job-cancel" type="button">CANCEL</button>' : ''}</span>`;
+    const x = $('job-cancel'); if (x) x.onclick = cancelFull;
   } else jc.innerHTML = '';
-  const sheet = (D.sheets || [])[0];
-  $('foot').innerHTML = `History through ${longLab(D.months[NM - 1])}${D.updated_at ? ' · full update ' + tstr(D.updated_at) : ''}${sheet ? ` · last sheet: <a href="${sheet.url}" target="_blank" rel="noopener">${sheet.name}</a>` : ''}`;
 }
 
 // ---------------------------------------------------------------- actions
 let toastT = null;
-function toast(html, ms) { const t = $('toast'); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, ms || 4000); }
-function busy(on, text) {
-  ['btn-refresh', 'btn-save', 'btn-full'].forEach(id => { $(id).disabled = on; });
-  if (on) { $('status').className = 'status busy'; $('status-text').textContent = text; }
-}
+function toast(html, ms) { const t = $('toast'); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); if (ms !== 0) toastT = setTimeout(() => { t.hidden = true; }, ms || 4000); }
+function busy(on, text) { $('btn-menu').disabled = on; busyText = on ? text : null; if (D) renderStatus(); }
 async function load(quiet) {
   try { const r = await api({ action: 'data' }); D = r.state; LS.set('bt-state', D); render(); pollJob(); }
   catch (e) { if (!quiet) toast(e.message, 6000); if (D) render(); }
 }
-async function refresh(save) {
+function apply(state) { D = state; LS.set('bt-state', D); if (S.preset) S.to = null; render(); }
+
+async function quickRefresh() {
   const t0 = Date.now();
-  busy(true, save ? 'REFRESHING + SAVING SHEET…' : 'REFRESHING…');
+  busy(true, 'REFRESHING…');
   try {
-    const r = await api({ action: 'refresh', save: !!save });
-    D = r.state; LS.set('bt-state', D);
-    if (S.preset) S.to = null;
-    render();
-    const secs = ((Date.now() - t0) / 1000).toFixed(1);
-    toast(r.sheet ? `Saved <a href="${r.sheet.url}" target="_blank" rel="noopener">${r.sheet.name}</a> to Drive · ${secs}s` : `Refreshed in ${secs}s${(D.live.stale || []).length ? ' · stale: ' + D.live.stale.join(', ') : ''}`, r.sheet ? 9000 : 4000);
-  } catch (e) { toast('Refresh failed: ' + e.message, 7000); render(); }
-  finally { busy(false); renderLive(); }
+    const r = await api({ action: 'refresh' });
+    apply(r.state);
+    toast(`Refreshed in ${((Date.now() - t0) / 1000).toFixed(1)}s${(D.live.stale || []).length ? ' · stale: ' + D.live.stale.join(', ') : ''}`);
+  } catch (e) { toast('Refresh failed: ' + e.message, 7000); }
+  finally { busy(false); }
 }
-async function full() {
-  busy(true, 'QUEUEING MAC JOB…');
-  try { const r = await api({ action: 'queue_full', save: true }); D.jobs = { full: r.job }; LS.set('bt-state', D); toast(r.note || 'Queued. Your Mac picks it up within a couple of minutes if it is awake.', 6000); pollJob(); }
+
+// Refresh + save sheet: refresh first, then save only if nobody pressed Cancel in between.
+let saveCancelled = false;
+async function refreshAndSave() {
+  saveCancelled = false;
+  busy(true, 'REFRESHING, THEN SAVING SHEET…');
+  toast('Refreshing prices and wallets… <a href="#" id="t-cancel">Cancel</a>', 0);
+  $('t-cancel').onclick = e => { e.preventDefault(); saveCancelled = true; toast('Cancelled. No sheet will be saved.', 4000); };
+  try {
+    const r = await api({ action: 'refresh' });
+    apply(r.state);
+    if (saveCancelled) return;
+    toast('Saving spreadsheet to Drive…', 0);
+    busy(true, 'SAVING SHEET…');
+    const s2 = await api({ action: 'save_sheet' });
+    apply(s2.state);
+    toast(`Saved <a href="${s2.sheet.url}" target="_blank" rel="noopener">${s2.sheet.name}</a> to Drive › Finances › Auto Generated`, 10000);
+  } catch (e) { toast('Failed: ' + e.message + '. Your data was not changed.', 8000); }
+  finally { busy(false); }
+}
+
+async function queueFull() {
+  busy(true, 'QUEUEING MAC UPDATE…');
+  try { const r = await api({ action: 'queue_full', save: true }); D.jobs = { full: r.job }; LS.set('bt-state', D); toast(r.note || 'Queued. Your Mac starts it within 2 minutes if it is awake. You can cancel until it finishes.', 7000); pollJob(); }
   catch (e) { toast('Could not queue: ' + e.message, 7000); }
-  finally { busy(false); renderLive(); }
+  finally { busy(false); }
+}
+async function cancelFull() {
+  try { const r = await api({ action: 'cancel_full' }); D.jobs = { full: r.job }; LS.set('bt-state', D); renderStatus(); toast(r.note || (r.job.status === 'cancelled' ? 'Cancelled before it started. Nothing changed.' : 'Stopping it on the Mac. Nothing is pushed until its last step.'), 6000); pollJob(); }
+  catch (e) { toast('Could not cancel: ' + e.message, 7000); }
 }
 let pollT = null;
 function pollJob() {
   clearTimeout(pollT);
   const j = D && D.jobs && D.jobs.full;
-  if (j && (j.status === 'queued' || j.status === 'running')) pollT = setTimeout(() => load(true), 20000);
+  if (j && ['queued', 'running', 'cancel_requested'].includes(j.status)) pollT = setTimeout(() => load(true), 15000);
 }
 
-// ---------------------------------------------------------------- settings
+// ---------------------------------------------------------------- two-step confirm
+const FLOWS = {
+  save: [
+    { step: 'STEP 1 OF 2', title: 'REFRESH + SAVE SHEET', ok: 'CONTINUE', body: `
+      <p>This does two things:</p>
+      <ul><li>Pulls live stock prices, crypto prices and on-chain wallet and stake balances.</li>
+      <li>Creates a <b>new spreadsheet</b> in Google Drive › Finances › Auto Generated, with Summary, Holdings, Crypto and History tabs.</li></ul>
+      <p class="warn">Bank and card balances are not pulled here. They stay as of the last full update. Nothing in your history changes.</p>` },
+    { step: 'STEP 2 OF 2', title: 'CREATE THE SHEET?', ok: 'REFRESH + SAVE', body: `
+      <p>A new file named <b>Balances ${new Date().toISOString().slice(0, 10)} … (auto)</b> will be added to Drive. Older sheets are kept.</p>
+      <p class="warn">You can still cancel while it refreshes. Once the sheet is being written it can't be stopped, but you can delete the file from Drive.</p>` },
+  ],
+  full: [
+    { step: 'STEP 1 OF 2', title: 'FULL UPDATE · MAC', ok: 'CONTINUE', body: `
+      <p>Your Mac (it must be awake, with Chrome open) will ask ChatGPT for your Plaid data:</p>
+      <ul><li>Credit card balances and this month's spend by category</li><li>Wells Fargo and other cash balances</li><li>Fidelity positions and cash for Brokerage, Roth IRA and 401(k)</li></ul>
+      <p>Then it refreshes crypto, closes last month into the history if it's the first 10 days of a month, and saves a spreadsheet.</p>
+      <p class="warn">This changes your bank, card and position numbers. It usually takes 5 to 15 minutes. You get a Telegram message when it starts.</p>` },
+    { step: 'STEP 2 OF 2', title: 'QUEUE IT ON THE MAC?', ok: 'QUEUE FULL UPDATE', body: `
+      <ul><li>Nothing changes until the very last step. If any number looks wrong (a card or bank total way off, positions off by over 30%), it stops and changes nothing.</li>
+      <li>The current version is backed up first. You can restore it under Settings and restore.</li>
+      <li>You can cancel from the status chip until it finishes.</li></ul>` },
+  ],
+};
+function confirmFlow(name, onDone) {
+  const steps = typeof name === 'string' ? FLOWS[name] : name;
+  let i = 0;
+  const dlg = $('confirm');
+  const show = () => {
+    const s = steps[i];
+    $('cf-step').textContent = s.step; $('cf-title').textContent = s.title; $('cf-body').innerHTML = s.body; $('cf-ok').textContent = s.ok;
+    $('cf-ok').className = 'fn ' + (i === steps.length - 1 ? 'amber' : 'ghost');
+  };
+  $('cf-ok').onclick = () => { if (i < steps.length - 1) { i++; show(); } else { dlg.close(); onDone(); } };
+  $('cf-cancel').onclick = () => dlg.close();
+  show();
+  dlg.showModal();
+}
+
+// ---------------------------------------------------------------- menu
+function toggleMenu(open) {
+  const m = $('menu'); const b = $('btn-menu');
+  const willOpen = open === undefined ? m.hidden : open;
+  m.hidden = !willOpen; b.setAttribute('aria-expanded', String(willOpen));
+}
+$('btn-menu').onclick = e => { e.stopPropagation(); toggleMenu(); };
+document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) toggleMenu(false); });
+$('menu').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
+  toggleMenu(false);
+  const a = b.dataset.act;
+  if (a === 'quick') quickRefresh();
+  else if (a === 'save') confirmFlow('save', refreshAndSave);
+  else if (a === 'full') confirmFlow('full', queueFull);
+  else if (a === 'settings') openSettings();
+});
+
+// ---------------------------------------------------------------- settings + restore
 function openSettings() {
   const c = cfg(); $('set-api').value = c.api; $('set-key').value = c.key;
   if (!$('settings').open) $('settings').showModal();
+  loadVersions();
+}
+async function loadVersions() {
+  const box = $('versions');
+  if (!cfg().key) { box.innerHTML = '<span class="sub">Connect first.</span>'; return; }
+  try {
+    const r = await api({ action: 'versions' });
+    box.innerHTML = r.versions.length ? r.versions.map(v => `<div class="ver"><span>${tstr(v.created)}<span class="n">${v.note || ''}</span></span><button class="fn ghost" data-id="${v.id}" type="button">RESTORE</button></div>`).join('') : '<span class="sub">No saved versions yet.</span>';
+    box.querySelectorAll('button[data-id]').forEach(btn => btn.onclick = () => {
+      const v = r.versions.find(x => x.id === btn.dataset.id);
+      $('settings').close();
+      confirmFlow([
+        { step: 'STEP 1 OF 2', title: 'RESTORE A VERSION', ok: 'CONTINUE', body: `<p>Puts your history, bank, card and position numbers back to how they were at <b>${tstr(v.created)}</b>.</p><p class="warn">The current version is backed up first, so you can undo this.</p>` },
+        { step: 'STEP 2 OF 2', title: 'RESTORE IT?', ok: 'RESTORE', body: `<p>${v.note || v.name}</p><p>Afterwards, use Refresh to get live prices again.</p>` },
+      ], async () => {
+        busy(true, 'RESTORING…');
+        try { const rr = await api({ action: 'restore', id: v.id }); apply(rr.state); toast('Restored the version from ' + tstr(v.created) + '.', 6000); }
+        catch (e) { toast('Restore failed: ' + e.message, 7000); }
+        finally { busy(false); }
+      });
+    });
+  } catch (e) { box.innerHTML = `<span class="sub">${e.message}</span>`; }
 }
 $('settings-form').addEventListener('submit', e => {
   if (e.submitter && e.submitter.value === 'ok') {
@@ -308,21 +448,12 @@ $('settings-form').addEventListener('submit', e => {
 });
 
 // ---------------------------------------------------------------- wiring
-$('btn-refresh').onclick = () => refresh(false);
-$('btn-save').onclick = () => refresh(true);
-$('btn-full').onclick = full;
-$('btn-settings').onclick = openSettings;
 $('from').onchange = () => { S.from = +$('from').value; if (S.from > S.to) S.to = S.from; S.preset = null; render(); };
 $('to').onchange = () => { S.to = +$('to').value; if (S.to < S.from) S.from = S.to; S.preset = null; render(); };
 document.querySelectorAll('#presets button').forEach(x => x.onclick = () => { S.preset = x.dataset.p; render(); });
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'F5') { e.preventDefault(); refresh(false); }
-  else if (e.key === 'F6') { e.preventDefault(); refresh(true); }
-  else if (e.key === 'F9') { e.preventDefault(); full(); }
-});
+document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
-setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('en-US', { hour12: false }) + ' ET'; }, 1000);
 
 if (D) render();
 if (!cfg().key) openSettings(); else load();

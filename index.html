@@ -19,15 +19,17 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo">▮▮▯</span><span>BALANCE<b>TERM</b></span></div>
-  <div class="status" id="status"><span class="dot"></span><span id="status-text">LOADING</span></div>
-  <div class="clock num" id="clock"></div>
-  <nav class="actions" id="actions">
-    <button class="fn" id="btn-refresh" title="Live prices and on-chain balances, a few seconds"><kbd>F5</kbd>REFRESH</button>
-    <button class="fn" id="btn-save" title="Refresh, then save a new spreadsheet to Drive/Finances/Auto Generated"><kbd>F6</kbd>REFRESH + SAVE SHEET</button>
-    <button class="fn amber" id="btn-full" title="Queue a full update on the Mac: cards, bank and Fidelity via Plaid"><kbd>F9</kbd>FULL UPDATE · MAC</button>
-    <button class="fn ghost" id="btn-settings" aria-label="Settings">⚙</button>
-  </nav>
+  <div class="updated" id="status"><span class="dot"></span><span class="lab">LAST UPDATED</span><span class="when" id="status-text">LOADING</span></div>
+  <div class="menu-wrap">
+    <button class="fn amber" id="btn-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="menu">⟳ REFRESH <span class="caret">▾</span></button>
+    <div class="menu" id="menu" role="menu" hidden>
+      <button role="menuitem" data-act="quick"><b>Refresh</b><span>Live prices and wallet balances. About 10 seconds.</span></button>
+      <button role="menuitem" data-act="save"><b>Refresh + save sheet</b><span>Same, then writes a new spreadsheet to Drive. Asks you to confirm.</span></button>
+      <button role="menuitem" data-act="full"><b>Full update · Mac</b><span>Cards, bank and Fidelity from Plaid, run on your Mac. Asks you to confirm.</span></button>
+      <hr>
+      <button role="menuitem" data-act="settings"><b>Settings and restore</b><span>Access key, earlier versions</span></button>
+    </div>
+  </div>
 </header>
 
 <div class="tape" aria-hidden="true"><div class="tape-in" id="tape"></div></div>
@@ -92,6 +94,15 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<dialog id="confirm">
+  <div class="cf">
+    <div class="cf-step" id="cf-step"></div>
+    <h2 id="cf-title"></h2>
+    <div class="cf-body" id="cf-body"></div>
+    <div class="row"><button class="fn ghost" id="cf-cancel" type="button">CANCEL</button><button class="fn amber" id="cf-ok" type="button"></button></div>
+  </div>
+</dialog>
+
 <dialog id="settings">
   <form method="dialog" id="settings-form">
     <h2>CONNECT</h2>
@@ -100,8 +111,13 @@
     <input id="set-key" type="password" autocomplete="off" spellcheck="false" placeholder="paste key">
     <label for="set-api">API URL</label>
     <input id="set-api" type="url" autocomplete="off" spellcheck="false">
-    <div class="row"><button value="cancel" class="fn ghost" formnovalidate>CANCEL</button><button value="ok" class="fn amber" id="set-save">CONNECT</button></div>
+    <div class="row"><button value="cancel" class="fn ghost" formnovalidate>CLOSE</button><button value="ok" class="fn amber" id="set-save">CONNECT</button></div>
   </form>
+  <div class="restore">
+    <h2>RESTORE AN EARLIER VERSION</h2>
+    <p>Saved automatically before every full update. Restoring keeps the current version as a backup too.</p>
+    <div id="versions" class="versions"><span class="sub">Loading…</span></div>
+  </div>
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
