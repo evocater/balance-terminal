@@ -133,16 +133,31 @@ function latestFor(kind) {
   const title = label + ' · PARTIAL MONTH · ' + src.map(x => `${x.k} ${x.d.length === 10 ? dshort(x.d) : tstr(x.d)}`).join(', ');
   return { label, title };
 }
-// The as-of line under each chart: the end column's data time, or the month-end for a closed month.
-function asofFor(col, kind) {
-  if (M[col] !== LATEST) { const d = monthEnd(M[col]); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-  const L = D.live || {};
-  const src = { assets: [L.asof, D.bank_now && D.bank_now.date], wc: [D.bank_now && D.bank_now.date, D.cards_now && D.cards_now.date], inv: [L.asof],
-    card: [D.cards_now && D.cards_now.date], cat: [D.spend_now && D.spend_now.asof] }[kind].filter(Boolean).sort();
-  const d = src.pop();
-  return !d ? '' : d.length === 10 ? dshort(d) : tstr(d);
+// The as-of line under each chart: which kind of refresh produced the end column, and exactly when.
+// "As of [QUICK] @ Oct 7 at 12:59am". Prices and wallets come from quick/more refreshes; bank, cards and
+// card spend only change on a full (HEAVY) update, stamped with the time it was pushed.
+const dtime = t => { const d = new Date(t); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase(); };
+function liveKind() {
+  const L = D.live || {}, sheet = (D.sheets || [])[0], j = D.jobs && D.jobs.full;
+  if (j && j.status === 'done' && j.finished_at && Math.abs(new Date(j.finished_at) - new Date(L.asof)) < 3 * 60000) return 'heavy';
+  return sheet && Math.abs(new Date(sheet.created) - new Date(L.asof)) < 3 * 60000 ? 'more' : 'quick';
 }
-const setAsof = (id, text) => { const el = $(id); if (el) el.textContent = text ? (id.startsWith('asof-') ? 'AS OF ' : '· ') + text : ''; };
+function asofFor(col, kind) {
+  if (M[col] !== LATEST) return { kind: 'close', t: monthEnd(M[col]).toISOString() };
+  const L = D.live || {};
+  const heavyT = D.updated_at || null;
+  const live = L.asof ? { kind: liveKind(), t: L.asof } : null;
+  const heavy = heavyT ? { kind: 'heavy', t: heavyT } : null;
+  const src = { assets: [live, heavy], wc: [heavy], inv: [live], card: [heavy], cat: [heavy] }[kind].filter(Boolean);
+  return src.sort((x, y) => new Date(y.t) - new Date(x.t))[0] || null;
+}
+const KTAG = { quick: '<i class="tag t-quick">QUICK</i>', more: '<i class="tag t-more">MORE</i>', heavy: '<i class="tag t-heavy">HEAVY</i>', close: '<i class="tag t-close">MONTH END</i>' };
+function setAsof(id, a) {
+  const el = $(id); if (!el) return;
+  if (!a) { el.textContent = ''; return; }
+  if (typeof a === 'string') { el.textContent = '· ' + a; return; }
+  el.innerHTML = id.startsWith('asof-') ? `As of ${KTAG[a.kind]} @ ${dtime(a.t)}` : '· ' + tstr(a.t);
+}
 const labelsFor = (cols, kind) => { const lt = X.hasNow ? latestFor(kind) : null; return cols.map(i => M[i] === LATEST ? lt.label : lab(M[i])); };
 const fillFor = (color, cols) => ctx => M[cols[ctx.dataIndex]] === LATEST ? hatch(color) : color;
 // Line charts: a dark hatched band over the LATEST segment, so the partial month reads as partial.
@@ -674,7 +689,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791349398';
+const BUILD = '1791349662';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();

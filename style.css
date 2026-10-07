@@ -166,7 +166,9 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .expander:hover{background:rgba(255,176,32,.12)}
 .expander .sub{color:var(--amber);font-weight:500;letter-spacing:.04em}
 /* date line under a chart without a dropdown, e.g. "AS OF Oct 7, 12:42 AM", in the same amber as the dropdown labels */
-.asof{font:500 11px var(--mono);letter-spacing:.04em;color:var(--amber);padding:2px 2px 0}
+.asof{font:500 11px var(--mono);letter-spacing:.02em;color:var(--amber);padding:2px 2px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.asof .tag,.status-chip .tag{font:600 8px var(--mono);font-style:normal;letter-spacing:.12em;border-radius:2px;padding:1px 5px}
+.tag.t-close{color:var(--ink-2);border:1px solid var(--line)}
 .expander .chev{transition:transform .15s}
 .expander[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .xbody{display:block}
