@@ -81,10 +81,10 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 .range-sel label{font-size:10px;letter-spacing:.12em;color:var(--ink-3)}
 select{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:5px 6px;font-size:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
-.seg button{background:var(--panel-2);border:0;padding:5px 10px;font:600 11px var(--mono);letter-spacing:.06em;color:var(--ink-2)}
+.seg button{white-space:nowrap;background:var(--panel-2);border:0;padding:5px 10px;font:600 11px var(--mono);letter-spacing:.06em;color:var(--ink-2)}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--amber);color:var(--amber-ink)}
-.seg.sm button{padding:3px 8px;font-size:10px}
+.seg.sm button{padding:7px 11px;font-size:10px;min-height:30px}
 .jobs{font-size:11px;color:var(--ink-2);display:flex;gap:8px;align-items:center}
 .chip{border:1px solid var(--line);border-radius:3px;padding:3px 8px;letter-spacing:.06em}
 .chip.run{border-color:var(--cyan);color:var(--cyan)} .chip.ok{border-color:#1b5e45;color:var(--green)} .chip.err{border-color:#6b2029;color:var(--red)} .chip.q{border-color:#6b4a0d;color:var(--amber)}
@@ -157,8 +157,10 @@ dialog input{width:100%;background:var(--bg);border:1px solid var(--line);border
 dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 
 /* expanders */
-.expander{display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;
-  padding:7px 10px;font:600 10px var(--mono);letter-spacing:.14em;color:var(--ink-2)}
+.expander{display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(255,176,32,.07);border:1px solid #6b4a0d;border-radius:3px;
+  padding:10px 12px;font:700 11px var(--mono);letter-spacing:.12em;color:var(--amber);min-height:40px}
+.expander:hover{background:rgba(255,176,32,.12)}
+.expander .sub{color:#c9963a;font-weight:500}
 .expander .chev{transition:transform .15s}
 .expander[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .xbody{display:block}
