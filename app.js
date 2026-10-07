@@ -53,7 +53,9 @@ const CAT_GROUPS = [
 const C = { ink3: '#5d6878', grid: '#121821', line: '#1a2029', panel: '#0a0d12', ink: '#d9e0ea', ink2: '#9aa6b6', amber: '#ffb020', sec: '#3a8de6', cash: '#8a95a6' };
 
 // ---------------------------------------------------------------- state
-let S = Object.assign({ from: null, to: null, preset: '12', inv: 'sector', liab: 'cat', hidden: {} }, LS.get('bt-view', {}));
+const WIDE = matchMedia('(min-width: 761px)').matches;
+let S = Object.assign({ from: null, to: null, preset: '12', inv: 'sector', liab: 'cat', hidden: {}, x: { pos: false, expo: WIDE, wal: false } }, LS.get('bt-view', {}));
+let Q = LS.get('bt-quotes', null);
 let D = LS.get('bt-state', null);
 let M = [], N = 0, NM = 0, X = {};
 
@@ -95,7 +97,8 @@ function applyPreset() {
   else if (p === 'ytd') { const y = D.months[NM - 1].split('-')[1]; S.from = Math.max(0, M.indexOf('Jan-' + y)); }
   else S.from = Math.max(0, N - (+p));
 }
-const saveView = () => LS.set('bt-view', { preset: S.preset, from: S.from, to: S.to, inv: S.inv, liab: S.liab, hidden: S.hidden });
+const saveView = () => LS.set('bt-view', { preset: S.preset, from: S.from, to: S.to, inv: S.inv, liab: S.liab, hidden: S.hidden, x: S.x });
+const PRESET_NAME = { '3': '3M', '6': '6M', '12': '1Y', ytd: 'YTD', '36': '3Y', all: 'ALL' };
 
 // ---------------------------------------------------------------- charts
 Chart.defaults.font.family = '"IBM Plex Mono", ui-monospace, monospace';
@@ -142,6 +145,8 @@ function render() {
   if (fs.options.length !== N) { fs.innerHTML = ''; ts.innerHTML = ''; M.forEach((m, i) => { fs.add(new Option(lab(m), i)); ts.add(new Option(lab(m), i)); }); }
   fs.value = a; ts.value = b;
   document.querySelectorAll('#presets button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === S.preset));
+  $('range-label').textContent = `${S.preset ? PRESET_NAME[S.preset] + ' · ' : ''}${lab(M[a])} → ${lab(M[b])}`;
+  applyX();
 
   // KPIs
   const K = [{ l: 'NET WORTH', v: X.nw, hero: true }, { l: 'INVESTMENTS', v: X.secT }, { l: 'CASH ON HAND', v: X.cash }, { l: 'CURRENT LIABILITIES', v: X.liab, inv: true }, { l: 'WORKING CAPITAL', v: X.wc }];
@@ -257,23 +262,23 @@ function renderLive() {
   $('wal').innerHTML = ws.length ? `<thead><tr><th>WALLET</th><th>AMOUNT</th><th class="hide-sm">PRICE</th><th>USD</th></tr></thead><tbody>${ws.map(r =>
     `<tr><td>${walletLabel(r)}${r.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="amt">${amt(r)}</td><td class="hide-sm">${r.asset === 'USD' ? '–' : fmt2(r.price)}</td><td class="usd">${fmt(r.usd)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL</td><td></td><td class="hide-sm"></td><td>${fmt(wt)}</td></tr></tbody>` : '<tbody><tr><td>No wallet read yet. Use Refresh.</td></tr></tbody>';
 
-  // Tape
-  const cRef = (D.crypto && D.crypto.ref_prices) || {};
-  const items = [];
-  const cp = (L && L.cprices) || cRef;
-  [['BTC', cp.BTC, cRef.BTC], ['SOL', cp.SOL, cRef.SOL], ['MON', cp.MON, cRef.MON]].forEach(([s, p, r]) => { if (p) items.push([s, p, r]); });
-  const sp = (L && L.prices) || refP;
-  Object.keys(refP).forEach(t => items.push([t, sp[t], refP[t]]));
-  const html = items.map(([s, p, r]) => { const d = r ? (p / r - 1) * 100 : 0; return `<span><b>${s}</b>${p < 1 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 })} <span class="${cls(d)}">${d >= 0 ? '▲' : '▼'}${Math.abs(d).toFixed(2)}%</span></span>`; }).join('');
-  $('tape').innerHTML = html + html;
-
+  renderTape();
+  renderTree();
   renderStatus();
   const sheet = (D.sheets || [])[0];
   $('foot').innerHTML = `History through ${longLab(D.months[NM - 1])}${D.updated_at ? ' · full update ' + tstr(D.updated_at) : ''}${D.restored_from ? ' · restored from ' + D.restored_from : ''}${sheet ? ` · last sheet: <a href="${sheet.url}" target="_blank" rel="noopener">${sheet.name}</a>` : ''}`;
 }
 
 let busyText = null;
+function renderLoading() {
+  const job = D && D.jobs && D.jobs.full && ['running', 'cancel_requested'].includes(D.jobs.full.status);
+  document.querySelectorAll('.panel, .kpi').forEach(el => {
+    const on = job || (busyText && el.id !== 'p-liab');
+    el.classList.toggle('loading', !!on);
+  });
+}
 function renderStatus() {
+  renderLoading();
   const st = $('status');
   st.className = 'updated';
   if (busyText) { st.classList.add('busy'); $('status-text').textContent = busyText; }
@@ -303,8 +308,95 @@ function renderStatus() {
 let toastT = null;
 function toast(html, ms) { const t = $('toast'); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); if (ms !== 0) toastT = setTimeout(() => { t.hidden = true; }, ms || 4000); }
 function busy(on, text) { $('btn-menu').disabled = on; busyText = on ? text : null; if (D) renderStatus(); }
+
+// ---------------------------------------------------------------- expanders (tap a chart to see its table)
+function applyX() {
+  Object.entries(S.x).forEach(([k, open]) => {
+    const body = $('x-' + k); if (body) body.hidden = !open;
+    document.querySelectorAll(`.expander[data-x="${k}"]`).forEach(b => b.setAttribute('aria-expanded', String(!!open)));
+  });
+  const hint = document.querySelector('.donut .hint'); if (hint) hint.textContent = S.x.expo ? 'TAP TO HIDE TABLE' : 'TAP FOR TABLE';
+}
+document.querySelectorAll('[data-x]').forEach(el => {
+  const go = () => { const k = el.dataset.x; S.x[k] = !S.x[k]; applyX(); saveView(); if (S.x[k]) setTimeout(() => $('x-' + k).scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50); };
+  el.addEventListener('click', go);
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+});
+
+// ---------------------------------------------------------------- ticker tape: always today's prices
+function renderTape() {
+  let items = [];
+  if (Q && Q.items && Q.items.length) items = Q.items.map(i => [i.s, i.price, i.pct]);
+  else if (D && D.live) {
+    const hold = D.holdings || [];
+    const refP = Object.fromEntries(hold.map(h => [h.ticker, h.ref_price]));
+    const cRef = (D.crypto && D.crypto.ref_prices) || {};
+    const cp = D.live.cprices || {};
+    ['BTC', 'SOL', 'MON'].forEach(k => { if (cp[k]) items.push([k, cp[k], cRef[k] ? (cp[k] / cRef[k] - 1) * 100 : null]); });
+    Object.keys(refP).forEach(t => { const p = (D.live.prices || {})[t]; if (p) items.push([t, p, (p / refP[t] - 1) * 100]); });
+  }
+  const sign = d => d == null ? '' : `<span class="${cls(d)}">${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}%</span>`;
+  const html = items.map(([k, p, d]) => `<span><b>${k}</b>${p < 1 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${sign(d)}</span>`).join('');
+  $('tape').innerHTML = html + html;
+}
+async function loadQuotes() {
+  if (!cfg().key) return;
+  try { const r = await api({ action: 'quotes' }); Q = r.quotes; LS.set('bt-quotes', Q); renderTape(); } catch (e) {}
+}
+$('tape-btn').onclick = () => {
+  if (!Q) { toast('Prices are from the last refresh. Today\'s prices load when the app can reach your API.'); return; }
+  const st = (Q.items || []).find(i => i.basis === 'day' && i.time);
+  toast(`Fetched ${tstr(Q.asof)}.<br>Stocks: last trade ${st ? tstr(st.time) : 'n/a'}, change vs the prior close.<br>Crypto: live price, change over the last 24 hours.`, 7000);
+};
+
+// ---------------------------------------------------------------- wallet map (squarified treemap)
+function squarify(items, x, y, w, h) {
+  const out = []; let rest = items.slice(); const total = rest.reduce((s, i) => s + i.v, 0); if (!total) return out;
+  const scale = w * h / total; rest = rest.map(i => Object.assign({}, i, { a: i.v * scale }));
+  const worst = (row, side) => { const s = row.reduce((t, r) => t + r.a, 0); const mx = Math.max(...row.map(r => r.a)), mn = Math.min(...row.map(r => r.a)); return Math.max(side * side * mx / (s * s), (s * s) / (side * side * mn)); };
+  while (rest.length) {
+    const side = Math.min(w, h); let row = [rest[0]]; let i = 1;
+    while (i < rest.length && worst(row.concat([rest[i]]), side) <= worst(row, side)) { row.push(rest[i]); i++; }
+    rest = rest.slice(i);
+    const s = row.reduce((t, r) => t + r.a, 0);
+    if (w >= h) { const cw = s / h; let cy = y; row.forEach(r => { const ch = r.a / cw; out.push(Object.assign(r, { x, y: cy, w: cw, h: ch })); cy += ch; }); x += cw; w -= cw; }
+    else { const ch = s / w; let cx = x; row.forEach(r => { const cw2 = r.a / ch; out.push(Object.assign(r, { x: cx, y, w: cw2, h: ch })); cx += cw2; }); y += ch; h -= ch; }
+  }
+  return out;
+}
+function walletShort(r) {
+  const m = r.label.match(/^(Phantom|Backpack)\s*(\d+)\s*\(([^)]+)\)(.*)$/i);
+  if (m) return { icon: ICON[m[1].toLowerCase()], text: `${m[2]} · ${m[3]}${/stake/i.test(m[4]) ? ' STAKE' : ''}` };
+  if (/^NFT\s+/i.test(r.label)) return { icon: ICON.nft, text: 'NFT · ' + r.label.replace(/^NFT\s+/i, '') };
+  if (/^Coinbase/i.test(r.label)) return { icon: ICON.coinbase, text: r.label.replace(/^Coinbase\s*/i, 'CB ') };
+  if (/TG Bots/i.test(r.label)) return { icon: ICON.bot, text: 'TG bots' };
+  return { icon: '', text: r.label };
+}
+const SECTOR_C = { Solana: '#7b3fe0', Monad: '#c23b97', Bitcoin: '#d97a10', NFTs: '#d43a4a' };
+function renderTree() {
+  const el = $('tree'); if (!el) return;
+  const W = ((D.live && D.live.crypto) || []).filter(r => r && r.usd > 0);
+  if (!W.length) { el.innerHTML = '<div class="tile" style="inset:0;border:0;color:var(--ink-3)">Refresh to read wallets.</div>'; return; }
+  const total = W.reduce((s, r) => s + r.usd, 0);
+  const big = W.filter(r => r.usd / total >= .012).sort((a, b) => b.usd - a.usd);
+  const small = W.filter(r => r.usd / total < .012);
+  const items = big.map(r => ({ v: r.usd, r }));
+  if (small.length) items.push({ v: small.reduce((s, r) => s + r.usd, 0), other: small });
+  const qp = Object.fromEntries(((Q && Q.items) || []).map(i => [i.s, i.pct]));
+  const rect = el.getBoundingClientRect();
+  const tiles = squarify(items, 0, 0, rect.width || 600, rect.height || 300);
+  el.innerHTML = tiles.map(t => {
+    const area = t.w * t.h, size = area < 3500 ? (area < 1500 ? ' small tiny' : ' small') : '';
+    if (t.other) return `<div class="tile${size}" style="left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px;background:#2a3140"><span class="t1">+${t.other.length} small</span><span class="t2">${fmtK(t.v)}</span><span class="t3">${(t.v / total * 100).toFixed(1)}%</span></div>`;
+    const r = t.r, ws = walletShort(r), d = qp[r.asset];
+    return `<div class="tile${size}" style="left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px;background:${SECTOR_C[r.sector] || '#3a4250'}" title="${r.label}: ${fmt(r.usd)}"><span class="t1">${ws.icon}${ws.text}</span><span class="t2">${fmtK(r.usd)}</span><span class="t3">${(r.usd / total * 100).toFixed(1)}%${d != null ? ` · ${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(1)}% 24h` : ''}</span></div>`;
+  }).join('');
+}
+if ('ResizeObserver' in window) new ResizeObserver(() => { if (D && D.live) renderTree(); }).observe($('tree'));
 async function load(quiet) {
-  try { const r = await api({ action: 'data' }); D = r.state; LS.set('bt-state', D); render(); pollJob(); }
+  try { const prevJob = D && D.jobs && D.jobs.full && D.jobs.full.status; const r = await api({ action: 'data' }); D = r.state;
+    const nowJob = D.jobs && D.jobs.full && D.jobs.full.status;
+    if (prevJob && ['queued', 'running', 'cancel_requested'].includes(prevJob) && nowJob && nowJob !== prevJob && ['done', 'error', 'cancelled'].includes(nowJob)) toast('Mac update ' + (nowJob === 'done' ? 'finished: ' : nowJob + ': ') + (D.jobs.full.message || ''), 8000); LS.set('bt-state', D); render(); pollJob(); }
   catch (e) { if (!quiet) toast(e.message, 6000); if (D) render(); }
 }
 function apply(state) { D = state; LS.set('bt-state', D); if (S.preset) S.to = null; render(); }
@@ -450,12 +542,19 @@ $('settings-form').addEventListener('submit', e => {
 // ---------------------------------------------------------------- wiring
 $('from').onchange = () => { S.from = +$('from').value; if (S.from > S.to) S.to = S.from; S.preset = null; render(); };
 $('to').onchange = () => { S.to = +$('to').value; if (S.to < S.from) S.from = S.to; S.preset = null; render(); };
-document.querySelectorAll('#presets button').forEach(x => x.onclick = () => { S.preset = x.dataset.p; render(); });
+document.querySelectorAll('#presets button').forEach(x => x.onclick = () => { S.preset = x.dataset.p; render(); toggleRange(false); });
+function toggleRange(open) { const p = $('range-pop'); const will = open === undefined ? p.hidden : open; p.hidden = !will; $('range-btn').setAttribute('aria-expanded', String(will)); }
+$('range-btn').onclick = e => { e.stopPropagation(); toggleRange(); };
+document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) toggleRange(false); });
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
+const wake = () => { if (!document.hidden) { load(true); loadQuotes(); } };
+document.addEventListener('visibilitychange', wake);
+window.addEventListener('focus', wake);
+window.addEventListener('pageshow', wake);
+setInterval(() => { if (!document.hidden) loadQuotes(); }, 5 * 60 * 1000);
 
 if (D) render();
-if (!cfg().key) openSettings(); else load();
+if (!cfg().key) openSettings(); else { load(); loadQuotes(); }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

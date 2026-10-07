@@ -9,6 +9,7 @@
   --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
 body{font:13px/1.4 var(--mono);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding-bottom:calc(var(--safe-b) + 8px)}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -46,7 +47,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 .menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
 
 /* ticker tape */
-.tape{overflow:hidden;border-bottom:1px solid var(--line);background:#07090c;white-space:nowrap}
+.tape{display:block;width:100%;text-align:left;border:0;padding:0;overflow:hidden;border-bottom:1px solid var(--line);background:#07090c;white-space:nowrap;color:inherit;font:inherit}
 .tape-in{display:inline-flex;gap:28px;padding:6px 16px;animation:tape 60s linear infinite;font-size:12px}
 .tape-in span b{color:var(--ink-2);font-weight:500;margin-right:6px}
 @keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -57,8 +58,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 
 /* range + jobs */
 .bar-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
-.range{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.range label{font-size:10px;letter-spacing:.12em;color:var(--ink-3)}
+.range-wrap{position:relative}
+.range-btn{gap:8px}
+.range-btn .lab{font-size:9px;letter-spacing:.14em;color:var(--ink-3)}
+.range-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:25;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 32px rgba(0,0,0,.6);width:max-content;max-width:calc(100vw - 32px)}
+.range-sel{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.range-sel label{font-size:10px;letter-spacing:.12em;color:var(--ink-3)}
 select{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:5px 6px;font-size:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
 .seg button{background:var(--panel-2);border:0;padding:5px 10px;font:600 11px var(--mono);letter-spacing:.06em;color:var(--ink-2)}
@@ -132,6 +137,32 @@ dialog label{display:block;font-size:10px;letter-spacing:.12em;color:var(--ink-3
 dialog input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:8px;font-size:12px}
 dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 
+/* expanders */
+.expander{display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;
+  padding:7px 10px;font:600 10px var(--mono);letter-spacing:.14em;color:var(--ink-2)}
+.expander .chev{transition:transform .15s}
+.expander[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.xbody{display:block}
+button.donut{background:none;border:0;padding:0;cursor:pointer;display:block;margin:0 auto}
+.donut-mid .hint{font-size:8px;letter-spacing:.14em;color:var(--ink-3);margin-top:2px}
+
+/* wallet treemap */
+.tree{position:relative;height:300px;border-radius:3px;overflow:hidden;cursor:pointer;background:var(--bg)}
+.tile{position:absolute;box-sizing:border-box;border:2px solid var(--panel);border-radius:3px;padding:6px 7px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.tile .t1{font:600 11px var(--mono);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.tile .t1 svg{width:14px;height:14px;flex:none;border-radius:3px}
+.tile .t2{font:500 13px var(--mono);white-space:nowrap}
+.tile .t3{font:500 10px var(--mono);opacity:.85;white-space:nowrap}
+.tile.small .t2,.tile.small .t3{display:none}
+.tile.tiny .t1{font-size:9px}
+
+/* loading: a spinner in the top right of anything being updated */
+.panel,.kpi{position:relative}
+.panel.loading::after,.kpi.loading::after{content:"";position:absolute;top:9px;right:9px;width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite;z-index:2}
+.panel.loading>header{padding-right:22px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.panel.loading::after,.kpi.loading::after{animation-duration:2.4s}}
+
 /* confirm steps */
 .cf-step{font:600 10px var(--mono);letter-spacing:.16em;color:var(--amber);margin-bottom:6px}
 .cf-body{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:8px;line-height:1.5}
@@ -167,6 +198,9 @@ td.usd{color:var(--ink);font-weight:500}
   .updated .when{font-size:13px}
   .hide-sm{display:none}
   .kpi .vs{display:none}
+  /* phone order: assets, liabilities, working capital, then the rest */
+  #p-assets{order:1} #p-liab{order:2} #p-wc{order:3} #p-inv{order:4} #p-expo{order:5} #p-wal{order:6}
+  .tree{height:260px}
   th,td{padding:5px 4px}
   .wl{gap:6px}
   .wl svg{width:16px;height:16px}
