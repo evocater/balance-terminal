@@ -600,7 +600,15 @@ $('range-btn').onclick = e => { e.stopPropagation(); toggleRange(); };
 document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) toggleRange(false); });
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
-const wake = () => { if (!document.hidden) { load(true); loadQuotes(); } };
+// Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
+const BUILD = '1791348406';
+async function checkVersion() {
+  try {
+    const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
+    if (v && BUILD !== '__BUILD__' && v !== BUILD && LS.get('bt-reloaded', '') !== v) { LS.set('bt-reloaded', v); location.reload(); }
+  } catch (e) {}
+}
+const wake = () => { if (!document.hidden) { load(true); loadQuotes(); checkVersion(); } };
 document.addEventListener('visibilitychange', wake);
 window.addEventListener('focus', wake);
 window.addEventListener('pageshow', wake);
@@ -608,5 +616,6 @@ setInterval(() => { if (!document.hidden) loadQuotes(); }, 5 * 60 * 1000);
 
 if (D) render();
 if (!cfg().key) openSettings(); else { load(); loadQuotes(); }
+checkVersion();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
