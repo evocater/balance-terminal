@@ -25,7 +25,7 @@ const lab = m => m === 'NOW' ? 'NOW' : m.split('-')[0] + " '" + m.split('-')[1];
 const longLab = m => m === 'NOW' ? 'now' : m.split('-')[0] + ' 20' + m.split('-')[1];
 const monthEnd = m => { const [a, y] = m.split('-'); return new Date(2000 + +y, MN.indexOf(a) + 1, 0, 23, 59); };
 const fmt = v => (v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v || 0)).toLocaleString('en-US');
-const fmt2 = v => '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt2 = v => { const n = Number(v || 0); const d = Math.abs(n) < 1 ? 5 : 2; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); };
 const fmtK = v => { const a = Math.abs(v), s = v < 0 ? '-' : ''; return a >= 1e6 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + (a / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'k' : s + '$' + Math.round(a); };
 const pctS = (a, b) => b ? ((a - b) / Math.abs(b) * 100) : null;
 const cls = d => d > 0 ? 'up' : d < 0 ? 'down' : 'flat';

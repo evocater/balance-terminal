@@ -47,7 +47,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 @media (prefers-reduced-motion:reduce){.tape-in{animation:none}}
 .up{color:var(--green)} .down{color:var(--red)} .flat{color:var(--ink-3)}
 
-.wrap{max-width:1400px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:12px;padding-top:12px}
+.wrap{max-width:1760px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:12px;padding-top:12px}
 
 /* range + jobs */
 .bar-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}

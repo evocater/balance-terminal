@@ -1,5 +1,5 @@
 // App shell cache. The API is never cached here; the app keeps the last data itself.
-const CACHE = 'bt-1791345075';
+const CACHE = 'bt-1791345209';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
