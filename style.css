@@ -176,6 +176,7 @@ button.donut{background:none;border:0;padding:0;cursor:pointer;display:block;mar
 .ver .n{color:var(--ink-3);display:block}
 
 /* jobs chip with cancel */
+.chip .short{display:none}
 .chip .x{margin-left:8px;background:none;border:0;color:var(--red);font:600 10px var(--mono);letter-spacing:.08em;padding:0;cursor:pointer}
 
 /* wallet labels */
@@ -201,6 +202,14 @@ td.usd{color:var(--ink);font-weight:500}
   .hide-sm{display:none}
   .kpi .vs{display:none}
   /* phone order: assets, liabilities, working capital, then the rest */
+  /* range button and Mac status share one line */
+  .bar-row{flex-wrap:nowrap;gap:6px}
+  .range-btn{padding:7px 9px;gap:6px;white-space:nowrap}
+  .range-btn .lab{display:none}
+  .jobs{min-width:0;flex:0 1 auto}
+  .chip{display:inline-flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:6px 7px}
+  .chip .long{display:none}
+  .chip .short{display:inline}
   #p-assets{order:1} #p-liab{order:2} #p-wc{order:3} #p-inv{order:4} #p-expo{order:5} #p-wal{order:6}
   .tree{height:260px}
   th,td{padding:5px 3px}

@@ -310,15 +310,16 @@ function renderStatus() {
   const j = D && D.jobs && D.jobs.full;
   const jc = $('jobs');
   if (j && j.status) {
+    const a = ago(j.finished_at || j.requested_at).toUpperCase();
     const m = {
-      queued: ['q', 'MAC UPDATE QUEUED ' + ago(j.requested_at).toUpperCase(), true],
-      running: ['run', 'MAC UPDATING · ' + (j.message || '').toUpperCase(), true],
-      cancel_requested: ['q', 'STOPPING ON THE MAC…', false],
-      cancelled: ['err', 'MAC UPDATE CANCELLED · NOTHING CHANGED', false],
-      done: ['ok', 'MAC UPDATE DONE ' + ago(j.finished_at || j.requested_at).toUpperCase(), false],
-      error: ['err', 'MAC UPDATE FAILED · ' + (j.message || '').toUpperCase(), false],
-    }[j.status] || ['q', String(j.status).toUpperCase(), false];
-    jc.innerHTML = `<span class="chip ${m[0]}" title="${(j.message || '').replace(/"/g, '&quot;')}">${m[1]}${m[2] ? '<button class="x" id="job-cancel" type="button">CANCEL</button>' : ''}</span>`;
+      queued: ['q', 'MAC UPDATE QUEUED ' + ago(j.requested_at).toUpperCase(), 'MAC QUEUED', true],
+      running: ['run', 'MAC UPDATING · ' + (j.message || '').toUpperCase(), 'MAC UPDATING…', true],
+      cancel_requested: ['q', 'STOPPING ON THE MAC…', 'STOPPING…', false],
+      cancelled: ['err', 'MAC UPDATE CANCELLED · NOTHING CHANGED', 'MAC CANCELLED', false],
+      done: ['ok', 'MAC UPDATE DONE ' + a, 'MAC DONE ' + a, false],
+      error: ['err', 'MAC UPDATE FAILED · ' + (j.message || '').toUpperCase(), 'MAC FAILED', false],
+    }[j.status] || ['q', String(j.status).toUpperCase(), String(j.status).toUpperCase(), false];
+    jc.innerHTML = `<span class="chip ${m[0]}" title="${(j.message || '').replace(/"/g, '&quot;')}"><span class="long">${m[1]}</span><span class="short">${m[2]}</span>${m[3] ? '<button class="x" id="job-cancel" type="button">CANCEL</button>' : ''}</span>`;
     const x = $('job-cancel'); if (x) x.onclick = cancelFull;
   } else jc.innerHTML = '';
 }
