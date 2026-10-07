@@ -118,6 +118,22 @@ function hatch(color) {
   g.beginPath(); g.moveTo(-2, 10); g.lineTo(10, -2); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); g.stroke();
   return (HATCH[color] = g.createPattern(c, 'repeat'));
 }
+// Each chart's LATEST column is labelled with the date of the data it actually shows.
+const dshort = d => new Date(d.length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function latestFor(kind) {
+  const L = D.live || {};
+  const prices = L.asof ? { k: 'prices + wallets', d: L.asof } : null;
+  const lastClose = monthEnd(D.months[NM - 1]).toISOString();
+  const bank = { k: 'bank', d: D.bank_now ? D.bank_now.date : lastClose };
+  const cards = { k: 'cards', d: D.cards_now ? D.cards_now.date : lastClose };
+  const spend = D.spend_now ? { k: 'card spend', d: D.spend_now.asof } : null;
+  const src = { assets: [prices, bank], wc: [bank, cards], inv: [prices], card: [cards], cat: [spend] }[kind].filter(Boolean);
+  const newest = src.map(x => x.d).sort().pop() || L.asof;
+  const label = dshort(newest);
+  const title = label + ' · PARTIAL MONTH · ' + src.map(x => `${x.k} ${x.d.length === 10 ? dshort(x.d) : tstr(x.d)}`).join(', ');
+  return { label, title };
+}
+const labelsFor = (cols, kind) => { const lt = X.hasNow ? latestFor(kind) : null; return cols.map(i => M[i] === LATEST ? lt.label : lab(M[i])); };
 const fillFor = (color, cols) => ctx => M[cols[ctx.dataIndex]] === LATEST ? hatch(color) : color;
 // Line charts: a dark hatched band over the LATEST segment, so the partial month reads as partial.
 const latestBand = {
@@ -125,7 +141,7 @@ const latestBand = {
   afterDatasetsDraw(chart) {
     const labels = chart.data.labels || [];
     const i = labels.length - 1;
-    if (chart.config.type !== 'line' || labels[i] !== 'LATEST' || i < 1) return;
+    if (chart.config.type !== 'line' || !chart.$latest || i < 1) return;
     const x = chart.scales.x, a = chart.chartArea, g = chart.ctx;
     const left = (x.getPixelForValue(i - 1) + x.getPixelForValue(i)) / 2;
     g.save(); g.fillStyle = hatch('#0a0d12'); g.globalAlpha = .55; g.fillRect(left, a.top, a.right - left, a.bottom - a.top); g.restore();
@@ -164,7 +180,7 @@ function upsert(id, cfgc) {
 document.addEventListener('click', e => {
   Object.values(charts).forEach(c => { if (c && c.canvas !== e.target && (c.tooltip.getActiveElements() || []).length) { clearTip(c); c._lastEvent = null; c.render(); } });
 });
-function baseOpts(stacked) {
+function baseOpts(stacked, latest) {
   return {
     responsive: true, maintainAspectRatio: false, animation: { duration: 200 }, layout: { padding: { right: 8 } },
     interaction: { mode: 'index', intersect: false },
@@ -173,7 +189,7 @@ function baseOpts(stacked) {
       titleFont: { weight: '600' }, bodyFont: { size: 11 }, footerFont: { size: 11, weight: '600' }, footerColor: C.amber,
       itemSort: (a, b) => (b.raw || 0) - (a.raw || 0),
       filter: it => it.raw !== 0 && it.raw !== null,
-      callbacks: { title: items => items.length && items[0].label === 'LATEST' ? 'LATEST · ' + (D && D.live ? tstr(D.live.asof) : '') + ' · PARTIAL MONTH' : (items[0] || {}).label, label: c => ` ${c.dataset.label}: ${fmt(c.raw)}`, footer: items => stacked && items.length > 1 ? 'TOTAL ' + fmt(items.reduce((s, i) => s + (i.raw || 0), 0)) : '' } } },
+      callbacks: { title: items => items.length && latest && items[0].label === latest.label ? latest.title : (items[0] || {}).label, label: c => ` ${c.dataset.label}: ${fmt(c.raw)}`, footer: items => stacked && items.length > 1 ? 'TOTAL ' + fmt(items.reduce((s, i) => s + (i.raw || 0), 0)) : '' } } },
     scales: {
       x: { stacked, grid: { display: false }, border: { color: C.line }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 14 } },
       y: { stacked, grid: { color: C.grid }, border: { display: false }, ticks: { font: { size: 10 }, callback: v => fmtK(v), maxTicksLimit: 6 } },
@@ -219,19 +235,21 @@ function render() {
   // Assets
   const A = [{ k: 'Total securities', c: C.sec, data: X.secT }, { k: 'Cash', c: C.cash, data: X.cash }];
   legend($('lg-assets'), A, 'as');
-  upsert('c-assets', { type: 'bar', data: { labels, datasets: A.filter(s => vis('as', s.k)).map(s => Object.assign({ label: s.k, data: sl(s.data), backgroundColor: fillFor(s.c, idx) }, bar)) }, options: baseOpts(true) });
+  const lAs = X.hasNow ? latestFor('assets') : null, lWc = X.hasNow ? latestFor('wc') : null, lInv = X.hasNow ? latestFor('inv') : null;
+  upsert('c-assets', { type: 'bar', data: { labels: labelsFor(idx, 'assets'), datasets: A.filter(s => vis('as', s.k)).map(s => Object.assign({ label: s.k, data: sl(s.data), backgroundColor: fillFor(s.c, idx) }, bar)) }, options: baseOpts(true, lAs) });
 
   // Working capital
   const WC = { k: 'Cash less current liabilities', c: C.sec };
   legend($('lg-wc'), [WC], 'wc');
-  upsert('c-wc', { type: 'bar', data: { labels, datasets: vis('wc', WC.k) ? [Object.assign({ label: WC.k, data: sl(X.wc), backgroundColor: fillFor(WC.c, idx) }, bar)] : [] }, options: baseOpts(false) });
+  upsert('c-wc', { type: 'bar', data: { labels: labelsFor(idx, 'wc'), datasets: vis('wc', WC.k) ? [Object.assign({ label: WC.k, data: sl(X.wc), backgroundColor: fillFor(WC.c, idx) }, bar)] : [] }, options: baseOpts(false, lWc) });
 
   // Investments
   const set = S.inv === 'sector' ? X.sec.filter(s => idx.some(i => s.data[i])) : TYPES.map(t => Object.assign({}, t, { data: X.type[t.k] })).filter(s => idx.some(i => s.data[i]));
   const key = 'inv-' + S.inv;
   legend($('lg-inv'), set, key);
   document.querySelectorAll('#inv-mode button').forEach(x => x.setAttribute('aria-pressed', x.dataset.m === S.inv));
-  upsert('c-inv', { type: 'line', data: { labels, datasets: set.filter(s => vis(key, s.k)).map(s => ({ label: s.k, data: sl(s.data), borderColor: s.c, backgroundColor: s.c + 'bb', fill: true, borderWidth: 1.2, pointRadius: 0, pointHoverRadius: 3, tension: .15 })) }, options: baseOpts(true) });
+  upsert('c-inv', { type: 'line', data: { labels: labelsFor(idx, 'inv'), datasets: set.filter(s => vis(key, s.k)).map(s => ({ label: s.k, data: sl(s.data), borderColor: s.c, backgroundColor: s.c + 'bb', fill: true, borderWidth: 1.2, pointRadius: 0, pointHoverRadius: 3, tension: .15 })) }, options: baseOpts(true, lInv) });
+  if (charts['c-inv']) { charts['c-inv'].$latest = M[b] === LATEST; charts['c-inv'].draw(); }
 
   // Exposure
   $('tbl-month').textContent = '@ ' + (M[b] === LATEST ? 'LATEST · ' + tstr(D.live.asof) : longLab(M[b]).toUpperCase());
@@ -267,8 +285,9 @@ function render() {
   const note = $('liab-note');
   if (byCat && la < X.catStart) { note.hidden = false; note.textContent = `Plaid transaction history starts ${longLab(D.months[X.catStart])}, so earlier months are empty in this view.`; } else note.hidden = true;
   legend($('lg-liab'), LSr, 'li-' + S.liab);
-  const lo = baseOpts(true); lo.scales.y.min = 0;
-  upsert('c-liab', { type: 'bar', data: { labels: lidx.map(i => lab(M[i])), datasets: LSr.filter(s => vis('li-' + S.liab, s.k)).map(s => Object.assign({ label: s.k, data: lidx.map(i => byCat ? s.data[i] : (s.data[i] || 0)), backgroundColor: fillFor(s.c, lidx) }, bar)) }, options: lo });
+  const lLi = X.hasNow ? latestFor(byCat ? 'cat' : 'card') : null;
+  const lo = baseOpts(true, lLi); lo.scales.y.min = 0;
+  upsert('c-liab', { type: 'bar', data: { labels: labelsFor(lidx, byCat ? 'cat' : 'card'), datasets: LSr.filter(s => vis('li-' + S.liab, s.k)).map(s => Object.assign({ label: s.k, data: lidx.map(i => byCat ? s.data[i] : (s.data[i] || 0)), backgroundColor: fillFor(s.c, lidx) }, bar)) }, options: lo });
 
   renderLive();
   saveView();
@@ -635,7 +654,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791348668';
+const BUILD = '1791348739';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
