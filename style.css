@@ -164,7 +164,9 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .expander{display:flex;justify-content:space-between;align-items:center;width:100%;background:rgba(255,176,32,.07);border:1px solid #6b4a0d;border-radius:3px;
   padding:10px 12px;font:700 11px var(--mono);letter-spacing:.12em;color:var(--amber);min-height:40px}
 .expander:hover{background:rgba(255,176,32,.12)}
-.expander .sub{color:#c9963a;font-weight:500}
+.expander .sub{color:var(--amber);font-weight:500;letter-spacing:.04em}
+/* date line under a chart without a dropdown, e.g. "AS OF Oct 7, 12:42 AM", in the same amber as the dropdown labels */
+.asof{font:500 11px var(--mono);letter-spacing:.04em;color:var(--amber);padding:2px 2px 0}
 .expander .chev{transition:transform .15s}
 .expander[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .xbody{display:block}

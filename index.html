@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=1791348907">
+<link rel="stylesheet" href="style.css?v=1791349398">
 </head>
 <body>
 <div id="scroller">
@@ -54,11 +54,13 @@
       <header><h2>ASSETS</h2></header>
       <div class="legend" id="lg-assets"></div>
       <div class="chart"><canvas id="c-assets"></canvas></div>
+      <div class="asof" id="asof-assets"></div>
     </section>
     <section class="panel" id="p-wc">
       <header><h2>WORKING CAPITAL</h2></header>
       <div class="legend" id="lg-wc"></div>
       <div class="chart"><canvas id="c-wc"></canvas></div>
+      <div class="asof" id="asof-wc"></div>
     </section>
 
     <section class="panel wide" id="p-inv">
@@ -70,9 +72,9 @@
     </section>
 
     <section class="panel wide" id="p-expo">
-      <header><h2>EXPOSURE <span class="sub" id="tbl-month"></span></h2></header>
+      <header><h2>EXPOSURE</h2></header>
       <button class="donut" type="button" data-x="expo" aria-label="Show the holdings table"><canvas id="c-pie"></canvas><span class="donut-mid"><span class="lab">INVESTMENTS</span><span class="num" id="pie-total"></span><span class="hint">TAP FOR TABLE</span></span></button>
-      <button class="expander" type="button" data-x="expo" aria-expanded="false" aria-controls="x-expo"><span>HOLDINGS · VALUE · SHARE</span><span class="chev">▾</span></button>
+      <button class="expander" type="button" data-x="expo" aria-expanded="false" aria-controls="x-expo"><span>HOLDINGS <span class="sub" id="expo-asof"></span></span><span class="chev">▾</span></button>
       <div class="xbody" id="x-expo" hidden><div class="tbl-wrap"><table id="tbl"></table></div></div>
     </section>
 
@@ -81,12 +83,13 @@
       <div class="legend" id="lg-liab"></div>
       <div class="chart"><canvas id="c-liab"></canvas></div>
       <div class="note" id="liab-note" hidden></div>
+      <div class="asof" id="asof-liab"></div>
     </section>
 
     <section class="panel wide" id="p-wal">
-      <header><h2>WALLETS <span class="sub" id="wal-asof"></span></h2></header>
+      <header><h2>WALLETS</h2></header>
       <div class="tree" id="tree" role="button" tabindex="0" data-x="wal" aria-label="Wallet map. Tap for the table."></div>
-      <button class="expander" type="button" data-x="wal" aria-expanded="false" aria-controls="x-wal"><span>WALLET TABLE</span><span class="chev">▾</span></button>
+      <button class="expander" type="button" data-x="wal" aria-expanded="false" aria-controls="x-wal"><span>WALLETS <span class="sub" id="wal-asof"></span></span><span class="chev">▾</span></button>
       <div class="xbody" id="x-wal" hidden><div class="tbl-wrap"><table id="wal"></table></div></div>
     </section>
   </div>
@@ -124,7 +127,7 @@
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="config.js?v=1791348907"></script>
-<script src="app.js?v=1791348907"></script>
+<script src="config.js?v=1791349398"></script>
+<script src="app.js?v=1791349398"></script>
 </body>
 </html>
