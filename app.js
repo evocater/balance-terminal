@@ -25,9 +25,12 @@ const LATEST = 'LATEST'; // the partial current month, drawn hatched
 const lab = m => m === LATEST ? 'LATEST' : m.split('-')[0] + " '" + m.split('-')[1];
 const longLab = m => m === LATEST ? 'latest' : m.split('-')[0] + ' 20' + m.split('-')[1];
 const monthEnd = m => { const [a, y] = m.split('-'); return new Date(2000 + +y, MN.indexOf(a) + 1, 0, 23, 59); };
-const fmt = v => (v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v || 0)).toLocaleString('en-US');
+// "Hide amounts" mode: every dollar figure and holding quantity is masked; percentages, prices and dates stay.
+let HIDE = false;
+const MASK = '$•••';
+const fmt = v => HIDE ? (v < 0 ? '-' : '') + MASK : (v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v || 0)).toLocaleString('en-US');
 const fmt2 = v => { const n = Number(v || 0); const d = Math.abs(n) < 1 ? 5 : 2; return '$' + n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); };
-const fmtK = v => { const a = Math.abs(v), s = v < 0 ? '-' : ''; return a >= 1e6 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + (a / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'k' : s + '$' + Math.round(a); };
+const fmtK = v => { const a = Math.abs(v), s = v < 0 ? '-' : ''; if (HIDE) return s + MASK; return a >= 1e6 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + (a / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'k' : s + '$' + Math.round(a); };
 const pctS = (a, b) => b ? ((a - b) / Math.abs(b) * 100) : null;
 const cls = d => d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
 const chg = d => `<span class="${cls(d)}">${d >= 0 ? '+' : '-'}${fmt(Math.abs(d))}</span>`;
@@ -55,7 +58,8 @@ const C = { ink3: '#5d6878', grid: '#121821', line: '#1a2029', panel: '#0a0d12',
 
 // ---------------------------------------------------------------- state
 const WIDE = matchMedia('(min-width: 761px)').matches;
-let S = Object.assign({ from: null, to: null, preset: '12', inv: 'sector', liab: 'cat', hidden: {}, x: { pos: false, expo: WIDE, wal: false } }, LS.get('bt-view', {}));
+let S = Object.assign({ from: null, to: null, preset: '12', inv: 'sector', liab: 'cat', hidden: {}, x: { pos: false, expo: WIDE, wal: false }, hide: false }, LS.get('bt-view', {}));
+HIDE = !!S.hide;
 let Q = LS.get('bt-quotes', null);
 let D = LS.get('bt-state', null);
 let M = [], N = 0, NM = 0, X = {};
@@ -104,7 +108,13 @@ function applyPreset() {
   else if (p === 'ytd') { const y = D.months[NM - 1].split('-')[1]; S.from = Math.max(0, M.indexOf('Jan-' + y)); }
   else S.from = Math.max(0, N - (+p) - (X.hasNow ? 1 : 0)); // e.g. 3M = the last 3 month-ends, plus LATEST when it exists
 }
-const saveView = () => LS.set('bt-view', { preset: S.preset, from: S.from, to: S.to, inv: S.inv, liab: S.liab, hidden: S.hidden, x: S.x });
+const saveView = () => LS.set('bt-view', { preset: S.preset, from: S.from, to: S.to, inv: S.inv, liab: S.liab, hidden: S.hidden, x: S.x, hide: S.hide });
+function applyHide() {
+  HIDE = !!S.hide;
+  document.body.classList.toggle('amounts-hidden', HIDE);
+  const b = document.querySelector('[data-act="privacy"]');
+  if (b) { b.querySelector('b').innerHTML = HIDE ? '◉ Show $ amounts' : '◌ Hide $ amounts'; b.setAttribute('aria-pressed', String(HIDE)); }
+}
 const PRESET_NAME = { '3': '3M', '6': '6M', '12': '1Y', ytd: 'YTD', '36': '3Y', all: 'ALL' };
 
 // ---------------------------------------------------------------- hatching for the partial LATEST month
@@ -217,7 +227,7 @@ function baseOpts(stacked, latest) {
       callbacks: { title: items => items.length && latest && items[0].label === latest.label ? latest.title : (items[0] || {}).label, label: c => ` ${c.dataset.label}: ${fmt(c.raw)}`, footer: items => stacked && items.length > 1 ? 'TOTAL ' + fmt(items.reduce((s, i) => s + (i.raw || 0), 0)) : '' } } },
     scales: {
       x: { stacked, grid: { display: false }, border: { color: C.line }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 14 } },
-      y: { stacked, grid: { color: C.grid }, border: { display: false }, ticks: { font: { size: 10 }, callback: v => fmtK(v), maxTicksLimit: 6 } },
+      y: { stacked, grid: { color: C.grid }, border: { display: false }, ticks: { font: { size: 10 }, callback: v => HIDE ? '' : fmtK(v), maxTicksLimit: 6 } },
     },
   };
 }
@@ -357,7 +367,7 @@ function renderLive() {
   const pr = ps.map(p => {
     const ref = refP[p.ticker] || p.price; const dv = (p.price - ref) * p.shares; tot += p.value; totRef += ref * p.shares;
     const pct = p.price / ref * 100 - 100;
-    return `<tr><td><span class="sw" style="background:${color[p.ticker] || '#8a95a6'};margin-right:8px"></span>${p.ticker}${p.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="usd">${fmt(p.value)}</td><td class="${cls(dv)}">${(pct >= 0 ? '+' : '') + pct.toFixed(2)}%</td><td>${chg(dv)}</td><td class="hide-sm">${p.account}</td><td class="hide-sm">${Number(p.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td><td class="hide-sm">${fmt2(p.price)}</td></tr>`;
+    return `<tr><td><span class="sw" style="background:${color[p.ticker] || '#8a95a6'};margin-right:8px"></span>${p.ticker}${p.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="usd">${fmt(p.value)}</td><td class="${cls(dv)}">${(pct >= 0 ? '+' : '') + pct.toFixed(2)}%</td><td>${chg(dv)}</td><td class="hide-sm">${p.account}</td><td class="hide-sm">${HIDE ? '•••' : Number(p.shares).toLocaleString('en-US', { maximumFractionDigits: 4 })}</td><td class="hide-sm">${fmt2(p.price)}</td></tr>`;
   }).join('');
   setAsof('pos-asof', L ? { kind: liveKind(), t: L.asof } : 'month-end values');
   $('pos').innerHTML = `<thead><tr><th>TICKER</th><th>VALUE</th><th>% VS ${refDate}</th><th>P/L</th><th class="hide-sm">ACCOUNT</th><th class="hide-sm">SHARES</th><th class="hide-sm">LAST</th></tr></thead><tbody>${pr}<tr class="tot"><td>TOTAL</td><td>${fmt(tot)}</td><td></td><td>${chg(tot - totRef)}</td><td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td></tr></tbody>`;
@@ -368,7 +378,7 @@ function renderLive() {
   const ws = W.slice().sort((x, y) => (y.usd || 0) - (x.usd || 0));
   const wt = ws.reduce((s, r) => s + (r.usd || 0), 0);
   const short = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : n >= 1 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : n.toFixed(4);
-  const amt = r => r.asset === 'USD' ? '–' : `${short(Number(r.amount))}<small>${r.asset}</small>`;
+  const amt = r => r.asset === 'USD' ? '–' : `${HIDE ? '•••' : short(Number(r.amount))}<small>${r.asset}</small>`;
   $('wal').innerHTML = ws.length ? `<thead><tr><th>WALLET</th><th>AMOUNT</th><th class="hide-sm">PRICE</th><th>USD</th></tr></thead><tbody>${ws.map(r =>
     `<tr><td>${walletLabel(r)}${r.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="amt">${amt(r)}</td><td class="hide-sm">${r.asset === 'USD' ? '–' : fmt2(r.price)}</td><td class="usd">${fmt(r.usd)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL</td><td></td><td class="hide-sm"></td><td>${fmt(wt)}</td></tr></tbody>` : '<tbody><tr><td>No wallet read yet. Use Refresh.</td></tr></tbody>';
 
@@ -643,6 +653,7 @@ $('menu').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => {
   else if (a === 'save') confirmFlow('save', refreshAndSave);
   else if (a === 'full') confirmFlow('full', queueFull);
   else if (a === 'settings') openSettings();
+  else if (a === 'privacy') { S.hide = !S.hide; applyHide(); saveView(); render(); toast(S.hide ? 'Amounts hidden. Percentages still show.' : 'Amounts showing again.', 2500); }
 });
 
 // ---------------------------------------------------------------- settings + restore
@@ -689,7 +700,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791349754';
+const BUILD = '1791380550';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
@@ -703,6 +714,7 @@ window.addEventListener('pageshow', wake);
 setInterval(() => { if (!document.hidden) loadQuotes(); }, 5 * 60 * 1000);
 setInterval(() => { if (!document.hidden && D) renderStatus(); }, 30 * 1000); // keep "x min ago" current
 
+applyHide();
 if (D) render();
 if (!cfg().key) openSettings(); else { load(); loadQuotes(); }
 checkVersion();
