@@ -9,14 +9,36 @@ const LS = {
 };
 const cfg = () => ({ api: LS.get('bt-api', (window.BT_CONFIG || {}).api || ''), key: LS.get('bt-key', '') });
 
+// Google's script hosting sometimes drops a request (the script itself answers in ~1s), so every call
+// gives up quickly and retries. Calls that must not run twice (saving a sheet, restoring) are not retried.
+const CALL = {
+  data: [10000, 4], peek: [10000, 4], quotes: [12000, 3], versions: [12000, 3],
+  queue_full: [10000, 4], cancel_full: [10000, 4], refresh: [45000, 2],
+  save_sheet: [90000, 1], restore: [60000, 1],
+};
 async function api(body) {
   const c = cfg();
   if (!c.api || !c.key) { openSettings(); throw new Error('Not connected yet. Paste your access key.'); }
-  const r = await fetch(c.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: c.key }, body)) });
-  const j = await r.json().catch(() => ({ ok: false, error: 'The API did not answer with data (HTTP ' + r.status + ').' }));
-  if (!j.ok) throw new Error(j.error || 'Request failed');
-  return j;
+  const [ms, tries] = CALL[body.action] || [20000, 2];
+  let last;
+  for (let n = 1; n <= tries; n++) {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(c.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: c.key }, body)), signal: ctl.signal });
+      const j = await r.json().catch(() => ({ ok: false, error: 'The API did not answer with data (HTTP ' + r.status + ').' }));
+      if (!j.ok) throw Object.assign(new Error(j.error || 'Request failed'), { fatal: true });
+      return j;
+    } catch (e) {
+      last = e;
+      if (e.fatal || n === tries) break;
+      if (body.action !== 'quotes' && body.action !== 'peek') busyNote(`Connection slow, retrying (${n + 1}/${tries})…`);
+      await new Promise(r => setTimeout(r, 600 * n));
+    } finally { clearTimeout(t); }
+  }
+  if (last && last.name === 'AbortError') throw new Error('Google did not answer in time. Try again in a moment.');
+  throw last.fatal ? last : new Error("Couldn't reach Google (" + (last && last.message || 'network') + '). Try again in a moment.');
 }
+function busyNote(text) { try { const t = $('toast'); if (t && !t.hidden) return; toast(text, 2500); } catch (e) {} }
 
 // ---------------------------------------------------------------- formatting
 const $ = id => document.getElementById(id);
@@ -700,7 +722,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791380550';
+const BUILD = '1791577162';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
