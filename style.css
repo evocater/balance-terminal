@@ -66,6 +66,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid 
 /* ticker tape */
 .tape{display:block;width:100%;text-align:left;border:0;padding:0;overflow:hidden;border-bottom:1px solid var(--line);background:#07090c;white-space:nowrap;color:inherit;font:inherit}
 .tape-in{display:inline-flex;gap:28px;padding:6px 16px;animation:tape 60s linear infinite;font-size:12px}
+.tape2{position:relative;background:#060809}
+.tape2 .tape-in{padding-left:150px;font-size:11px}
+.tape2 .tape-in em{font-style:normal;color:var(--ink-3)}
+.tape-lab{position:absolute;left:0;top:0;bottom:0;z-index:2;display:flex;align-items:center;padding:0 10px 0 16px;background:linear-gradient(90deg,#060809 80%,rgba(6,8,9,0));
+  font:600 9px var(--mono);letter-spacing:.12em;color:var(--amber);white-space:nowrap}
+.ti svg{width:12px;height:12px;vertical-align:-2px;margin-right:4px;border-radius:2px}
 .tape-in span b{color:var(--ink-2);font-weight:500;margin-right:6px}
 @keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.tape-in{animation:none}}

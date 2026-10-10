@@ -405,6 +405,7 @@ function renderLive() {
     `<tr><td>${walletLabel(r)}${r.stale ? '<span class="tag-stale">STALE</span>' : ''}</td><td class="amt">${amt(r)}</td><td class="hide-sm">${r.asset === 'USD' ? '–' : fmt2(r.price)}</td><td class="usd">${fmt(r.usd)}</td></tr>`).join('')}<tr class="tot"><td>TOTAL</td><td></td><td class="hide-sm"></td><td>${fmt(wt)}</td></tr></tbody>` : '<tbody><tr><td>No wallet read yet. Use Refresh.</td></tr></tbody>';
 
   renderTape();
+  renderTape2();
   renderTree();
   renderStatus();
   const sheet = (D.sheets || [])[0];
@@ -511,6 +512,60 @@ function renderTape() {
   const html = items.map(([k, p, d]) => `<span><b>${k}</b>${p < 1 ? p.toFixed(4) : p.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${sign(d)}</span>`).join('');
   $('tape').innerHTML = html + html;
 }
+// ---------------------------------------------------------------- "what changed" tape (vs the previous refresh)
+function changeDrivers() {
+  const L = D && D.live, P = D && D.prev_live;
+  if (!L || !P || !L.holdings || !P.holdings) return null;
+  const items = [];
+  const pct = (a, b) => b ? (a / b - 1) * 100 : 0;
+  const sp = v => (v >= 0 ? '+' : '-') + Math.abs(v).toFixed(1) + '%';
+  const qty = (n, unit) => (n >= 0 ? '+' : '-') + (Math.abs(n) >= 1000 ? (Math.abs(n) / 1000).toFixed(1) + 'k' : Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: Math.abs(n) < 10 ? 2 : 0 })) + ' ' + unit;
+  // Stocks, summed across accounts: split into price move and shares bought/sold.
+  const byT = {};
+  const add = (h, k) => { const t = byT[h.ticker] = byT[h.ticker] || { now: 0, prev: 0, shNow: 0, shPrev: 0, px: 0, pxPrev: 0 }; t[k === 'now' ? 'now' : 'prev'] += h.value; t[k === 'now' ? 'shNow' : 'shPrev'] += h.shares; t[k === 'now' ? 'px' : 'pxPrev'] = h.price; };
+  L.holdings.forEach(h => add(h, 'now')); P.holdings.forEach(h => add(h, 'prev'));
+  Object.entries(byT).forEach(([t, v]) => {
+    const dv = v.now - v.prev; if (Math.abs(dv) < 25) return;
+    const why = [];
+    if (v.pxPrev && v.px) why.push('price ' + sp(pct(v.px, v.pxPrev)));
+    if (Math.abs(v.shNow - v.shPrev) > 1e-3) why.push((v.shNow > v.shPrev ? 'bought ' : 'sold ') + (HIDE ? '•••' : Math.abs(v.shNow - v.shPrev).toFixed(2)) + ' sh');
+    items.push({ k: t, dv, why: why.join(', '), good: dv >= 0 });
+  });
+  // Crypto lines: price move vs coins added (deposits, staking rewards) or removed.
+  const pc = {}; (P.crypto || []).filter(Boolean).forEach(c => { pc[c.label + '|' + c.kind] = c; });
+  (L.crypto || []).filter(Boolean).forEach(c => {
+    const p = pc[c.label + '|' + c.kind]; const dv = c.usd - (p ? p.usd : 0); if (Math.abs(dv) < 25) return;
+    const why = [];
+    if (p && c.asset !== 'USD' && p.price) why.push(c.asset + ' ' + sp(pct(c.price, p.price)));
+    const da = p ? c.amount - p.amount : c.amount;
+    if (c.asset !== 'USD' && Math.abs(da) > Math.max(1e-6, (p ? p.amount : 0) * 1e-4)) why.push(HIDE ? (da >= 0 ? '+' : '-') + '••• ' + c.asset : qty(da, c.asset) + (c.kind === 'stake' && da > 0 ? ' earned' : ''));
+    const ws = walletShort(c);
+    items.push({ k: ws.text, icon: ws.icon, dv, why: why.join(', '), good: dv >= 0 });
+  });
+  // Cash and cards (only move on a full update).
+  const dc = (L.cash || 0) - (P.cash || 0);
+  if (Math.abs(dc) >= 1) items.push({ k: 'Cash', dv: dc, why: 'bank balances', good: dc >= 0 });
+  if (L.cards && P.cards) Object.keys(L.cards).forEach(c => { const d = (L.cards[c] || 0) - (P.cards[c] || 0); if (Math.abs(d) >= 1) items.push({ k: c.replace('Delta SkyMiles ', 'Amex ').replace('Chase Freedom Unlimited', 'Chase FU'), dv: -d, why: (d > 0 ? 'owe ' : 'paid down ') + fmt(Math.abs(d)), good: d <= 0 }); });
+  else { const dl = (L.liab || 0) - (P.liab || 0); if (Math.abs(dl) >= 1) items.push({ k: 'Cards', dv: -dl, why: (dl > 0 ? 'owe ' : 'paid down ') + fmt(Math.abs(dl)), good: dl <= 0 }); }
+  items.sort((a, b) => Math.abs(b.dv) - Math.abs(a.dv));
+  return { since: P.asof, total: (L.net_worth || 0) - (P.net_worth || 0), items };
+}
+function renderTape2() {
+  const btn = $('tape2-btn'); const c = changeDrivers();
+  if (!c || !c.items.length) { btn.hidden = true; return; }
+  btn.hidden = false;
+  $('tape2-lab').textContent = 'VS ' + dtime(c.since).toUpperCase();
+  const money = v => `<span class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '+' : '-'}${fmtK(Math.abs(v)).replace('-', '')}</span>`;
+  const head = `<span><b>NET WORTH</b> ${money(c.total)}</span>`;
+  const html = head + c.items.map(i => `<span>${i.icon ? `<i class="ti">${i.icon}</i>` : ''}<b>${i.k}</b> <span class="${i.good ? 'up' : 'down'}">${i.dv >= 0 ? '+' : '-'}${fmtK(Math.abs(i.dv)).replace('-', '')}</span>${i.why ? ` <em>${i.why}</em>` : ''}</span>`).join('');
+  $('tape2').innerHTML = html + html;
+  $('tape2').style.animationDuration = Math.max(40, (c.items.length + 1) * 6) + 's';
+}
+$('tape2-btn').onclick = () => {
+  const c = changeDrivers(); if (!c) return;
+  toast(`What moved since your previous refresh (${dtime(c.since)}), biggest first.<br>"price" = market move · "bought/sold" = share changes · coins "earned" = staking rewards · cash and cards change on a full update.`, 8000);
+};
+
 async function loadQuotes() {
   if (!cfg().key) return;
   try { const r = await api({ action: 'quotes' }); Q = r.quotes; LS.set('bt-quotes', Q); renderTape(); } catch (e) {}
@@ -538,7 +593,7 @@ function squarify(items, x, y, w, h) {
 }
 function walletShort(r) {
   const m = r.label.match(/^(Phantom|Backpack)\s*(\d+)\s*\(([^)]+)\)(.*)$/i);
-  if (m) return { icon: ICON[m[1].toLowerCase()], text: `${m[2]} · ${m[3]}${/stake/i.test(m[4]) ? ' STAKE' : ''}` };
+  if (m) { const n2 = (m[4].match(/stake\s*(\d+)/i) || [])[1]; return { icon: ICON[m[1].toLowerCase()], text: `${m[2]} · ${m[3]}${/stake/i.test(m[4]) ? ' STAKE' + (n2 ? ' ' + n2 : '') : ''}` }; }
   if (/^NFT\s+/i.test(r.label)) return { icon: ICON.nft, text: 'NFT · ' + r.label.replace(/^NFT\s+/i, '') };
   if (/^Coinbase/i.test(r.label)) return { icon: ICON.coinbase, text: r.label.replace(/^Coinbase\s*/i, 'CB ') };
   if (/TG Bots/i.test(r.label)) return { icon: ICON.bot, text: 'TG bots' };
@@ -722,7 +777,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.range-wrap')) 
 document.querySelectorAll('#inv-mode button').forEach(x => x.onclick = () => { S.inv = x.dataset.m; render(); });
 document.addEventListener('keydown', e => { if (e.key === 'F5' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); quickRefresh(); } });
 // Self-update: deploy_pwa.sh writes version.txt and stamps BUILD below. If they differ, reload once.
-const BUILD = '1791578240';
+const BUILD = '1791595037';
 async function checkVersion() {
   try {
     const v = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim();
